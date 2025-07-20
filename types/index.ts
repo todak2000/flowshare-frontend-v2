@@ -1,3 +1,5 @@
+import { Timestamp } from "firebase/firestore";
+
 // types/index.ts
 export interface ProductionEntry {
   id: string;
@@ -15,14 +17,73 @@ export interface ProductionEntry {
 
 export interface TerminalReceipt {
   id: string;
+  initial_volume_bbl: number;
   final_volume_bbl: number;
   temperature_degF: number;
-  pressure_psi: number;
+  pressure_psi?: number;
   timestamp: Date;
   hash: string;
   created_by: string;
   created_at: Date;
   updated_at: Date;
+}
+
+// types.ts - Update the AllocationResult interface
+
+// export interface AllocationResult {
+//   id: string;
+//   partner: string;
+//   input_volume: number;
+//   net_volume: number;
+//   allocated_volume: number;
+//   percentage: number;
+//   volume_loss: number; // New field for volume loss calculation
+//   timestamp: Timestamp;
+//   reconciliation_id: string;
+//   created_at: Timestamp;
+//   hash: string;
+// }
+
+// Add new interface for monthly summary
+export interface MonthlyAllocationSummary {
+  partner: string;
+  period: string;
+  totalProductionInput: number;
+  totalAllocatedVolume: number;
+  totalVolumeLoss: number;
+  allocationCount: number;
+  allocations: AllocationResult[];
+  productionEntries: ProductionEntry[];
+}
+
+// Add new interface for reconciliation report
+export interface ReconciliationReport {
+  reconciliation: ReconciliationRun;
+  allocations: AllocationResult[];
+  summary: {
+    totalPartners: number;
+    totalInputVolume: number;
+    actualTerminalVolume: number;
+    totalAllocatedVolume: number;
+    totalVolumeLoss: number;
+    shrinkagePercentage: number;
+  };
+}
+// types.ts - Updated interfaces with date range support
+
+export interface ReconciliationRun {
+  id: string;
+  total_terminal_volume: number;
+  total_input_volume: number;
+  total_net_volume: number;
+  shrinkage_factor: number;
+  start_date: Timestamp | Date; // Period start date
+  end_date: Timestamp | Date; // Period end date
+  timestamp: Date; // When reconciliation was run
+  status: "completed" | "failed" | "in_progress";
+  triggered_by: string;
+  created_at: Date;
+  hash: string;
 }
 
 export interface AllocationResult {
@@ -32,25 +93,58 @@ export interface AllocationResult {
   net_volume: number;
   allocated_volume: number;
   percentage: number;
-  timestamp: Date;
-  hash: string;
+  volume_loss: number; // Volume loss calculation
+  start_date: Timestamp | Date; // Period start date
+  end_date: Timestamp | Date; // Period end date
+  timestamp: Timestamp | Date; // When allocation was calculated
   reconciliation_id: string;
-  created_at: Date;
-}
-
-export interface ReconciliationRun {
-  id: string;
-  total_terminal_volume: number;
-  total_input_volume: number;
-  total_net_volume: number;
-  shrinkage_factor: number;
-  timestamp: Date;
-  status: "pending" | "completed" | "failed";
-  triggered_by: string;
-  created_at: Date;
+  created_at: Timestamp | Date;
   hash: string;
 }
 
+// Add new interface for monthly summary
+export interface MonthlyAllocationSummary {
+  partner: string;
+  period: string;
+  totalProductionInput: number;
+  totalAllocatedVolume: number;
+  totalVolumeLoss: number;
+  allocationCount: number;
+  allocations: AllocationResult[];
+  productionEntries: ProductionEntry[];
+}
+
+// Add new interface for reconciliation report
+export interface ReconciliationReport {
+  reconciliation: ReconciliationRun;
+  allocations: AllocationResult[];
+  summary: {
+    totalPartners: number;
+    totalInputVolume: number;
+    actualTerminalVolume: number;
+    totalAllocatedVolume: number;
+    totalVolumeLoss: number;
+    shrinkagePercentage: number;
+  };
+}
+
+// Add interface for reconciliation period summary
+export interface ReconciliationPeriodSummary {
+  periodStart: Date;
+  periodEnd: Date;
+  totalProductionEntries: number;
+  totalTerminalReceipts: number;
+  partnersInvolved: string[];
+  readyForReconciliation: boolean;
+  issues: string[];
+}
+
+// Add interface for existing reconciliation check
+export interface ExistingReconciliationCheck {
+  exists: boolean;
+  reconciliation?: ReconciliationRun;
+  message?: string;
+}
 export interface AuditLog {
   id: string;
   action: string;
@@ -91,6 +185,7 @@ export type Permission =
   | "view_all_allocations"
   | "manage_users"
   | "view_audit_logs"
+  | "view_allocation_results"
   | "export_reports";
 
 export interface AllocationInput {
@@ -148,17 +243,6 @@ export type CreateTerminalReceiptData = Omit<
 >;
 export type UpdateProductionEntryData = Partial<CreateProductionEntryData>;
 export type UpdateTerminalReceiptData = Partial<CreateTerminalReceiptData>;
-
-// export interface ProductionEntry {
-//   id: string;
-//   partner: string;
-//   gross_volume_bbl: number;
-//   bsw_percent: number;
-//   temperature_degF: number;
-//   pressure_psi: number;
-//   timestamp: Date | string;
-//   created_by: string;
-// }
 
 export interface Filters {
   partner: string;

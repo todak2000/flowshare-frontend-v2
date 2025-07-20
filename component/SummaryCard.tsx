@@ -3,7 +3,7 @@ import React from "react";
 interface SummaryCardProps {
   title: string;
   value: string | number;
-  color: "blue" | "green" | "orange" | "purple";
+  color: "blue" | "green" | "orange" | "purple" | "red";
   unit?: string;
 }
 
@@ -15,6 +15,7 @@ const SummaryCard: React.FC<SummaryCardProps> = ({
 }) => {
   const colorClasses = {
     blue: "text-blue-600",
+    red: "text-red-600",
     green: "text-green-600",
     orange: "text-orange-600",
     purple: "text-purple-600",

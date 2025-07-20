@@ -11,4 +11,5 @@ export const permissionsList: Record<string, Permission> = {
   canManageUsers: "manage_users",
   canAudit: "view_audit_logs",
   canExport: "export_reports",
+  canViewAllocation: "view_allocation_results",
 };

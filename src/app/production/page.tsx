@@ -78,7 +78,7 @@ const CHART_COLORS = ["#8884d8", "#82ca9d", "#ffc658", "#ff7300", "#00ff00"];
     };
 
     return (
-      <div className="max-w-md mx-auto mt-8 p-6 bg-white rounded-lg shadow-lg">
+      <div className="max-w-md mx-auto mt-8 p-6 bg-white rounded-lg shadow-lg ">
         <h2 className="text-2xl font-bold text-gray-800 mb-6 text-center">
           Production Data Form
         </h2>
