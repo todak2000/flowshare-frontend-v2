@@ -1,17 +1,105 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-// src/app/onboarding/login/page.tsx
 "use client";
+import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { Eye, EyeOff, Mail, Lock, AlertCircle, ArrowRight } from "lucide-react";
+import { AnimatedBackground, COLORS } from "../../../../component/Home";
+import { Logo } from "../../../../component/Logo";
+import { InputField } from "../../../../component/InputField";
 import { firebaseService } from "../../../../lib/firebase-service";
 import { UserRole } from "../../../../types";
 
+interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
+  children: React.ReactNode;
+  type?: "button" | "submit" | "reset";
+  variant?: "primary" | "secondary" | "demo";
+  disabled?: boolean;
+  loading?: boolean;
+  onClick?: () => void;
+  className?: string;
+}
+
+interface ErrorAlertProps {
+  message: string;
+}
+
+const Button: React.FC<ButtonProps> = ({
+  children,
+  type = "button",
+  variant = "primary",
+  disabled = false,
+  loading = false,
+  onClick,
+  className = "",
+  ...props
+}) => {
+  const baseClasses =
+    "w-full py-3 px-4 cursor-pointer rounded-xl font-semibold transition-all duration-300 transform hover:scale-[1.02] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-transparent";
+  const variants = {
+    primary: `bg-gradient-to-r ${COLORS.primary.blue[600]} ${COLORS.primary.purple[600]} hover:${COLORS.primary.blue[700]} hover:${COLORS.primary.purple[700]} text-white focus:${COLORS.border.ring}`,
+    secondary: `${COLORS.background.glass} backdrop-blur-sm ${COLORS.border.light} border ${COLORS.text.primary} hover:${COLORS.background.glassHover}`,
+    demo: `${COLORS.background.glass} backdrop-blur-sm ${COLORS.border.light} border hover:${COLORS.background.glassHover} ${COLORS.text.primary} text-left`,
+  };
+  return (
+    <button
+      type={type}
+      disabled={disabled || loading}
+      onClick={onClick}
+      className={`${baseClasses} ${variants[variant]} ${
+        disabled || loading ? "opacity-50 cursor-not-allowed" : ""
+      } ${className}`}
+      {...props}
+    >
+      {loading ? (
+        <div className="flex items-center justify-center">
+          <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2"></div>
+          Signing in...
+        </div>
+      ) : (
+        children
+      )}
+    </button>
+  );
+};
+
+const ErrorAlert: React.FC<ErrorAlertProps> = ({ message }) => (
+  <div className="bg-red-500/10 border border-red-500/20 text-red-400 px-4 py-3 rounded-xl mb-6 backdrop-blur-sm">
+    <div className="flex">
+      <div className="flex-shrink-0">
+        <AlertCircle className="h-5 w-5" />
+      </div>
+      <div className="ml-3">
+        <p className="text-sm">{message}</p>
+      </div>
+    </div>
+  </div>
+);
+
+// --- Main Login Component ---
 export default function LoginPage() {
   const router = useRouter();
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [error, setError] = useState("");
-  const [loading, setLoading] = useState(false);
+  const [email, setEmail] = useState<string>("");
+  const [password, setPassword] = useState<string>("");
+  const [error, setError] = useState<string>("");
+  const [loading, setLoading] = useState<boolean>(false);
+  const [showPassword, setShowPassword] = useState<boolean>(false);
+  const [isVisible, setIsVisible] = useState<boolean>(false);
+
+  useEffect(() => {
+    // Add Google Fonts
+    const link = document.createElement("link");
+    link.href =
+      "https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Space+Grotesk:wght@400;500;600;700&display=swap";
+    link.rel = "stylesheet";
+    document.head.appendChild(link);
+    document.body.style.fontFamily = "'Inter', sans-serif";
+    setIsVisible(true);
+    return () => {
+      if (document.head.contains(link)) {
+        document.head.removeChild(link);
+      }
+    };
+  }, []);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -61,116 +149,116 @@ export default function LoginPage() {
     }
   };
 
-  const handleDemoLogin = (demoEmail: string) => {
-    setEmail(demoEmail);
-    setPassword("demo123");
-  };
-
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
-      <div className="max-w-md w-full bg-white shadow-lg rounded-lg p-8">
+    <div
+      className={`min-h-screen ${COLORS.background.gradient} flex items-center justify-center px-4 relative`}
+      style={{ fontFamily: "'Inter', sans-serif" }}
+    >
+      <AnimatedBackground />
+      <div
+        className={`max-w-md w-full ${
+          COLORS.background.card
+        } backdrop-blur-xl ${
+          COLORS.border.light
+        } border rounded-2xl p-8 shadow-2xl transition-all duration-1000 ${
+          isVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-10"
+        }`}
+      >
+        <Logo />
         <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-gray-900">Welcome Back</h1>
-          <p className="text-gray-600 mt-2">Sign in to your account</p>
+          <h2
+            className={`text-2xl font-bold ${COLORS.text.primary} mb-2`}
+            style={{ fontFamily: "'Space Grotesk', sans-serif" }}
+          >
+            Welcome Back
+          </h2>
+          <p className={COLORS.text.secondary}>
+            Sign in to your FlowShare account
+          </p>
         </div>
-        
-        {error && (
-          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-6">
-            <div className="flex">
-              <div className="flex-shrink-0">
-                <svg className="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
-                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
-                </svg>
-              </div>
-              <div className="ml-3">
-                <p className="text-sm">{error}</p>
-              </div>
-            </div>
-          </div>
-        )}
-        
+        {error && <ErrorAlert message={error} />}
         <form onSubmit={handleLogin} className="space-y-6">
-          <div>
-            <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
-              Email Address
-            </label>
-            <input
-              id="email"
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-              className="w-full border border-gray-300 rounded-lg px-3 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition duration-200"
-              placeholder="Enter your email"
-              disabled={loading}
-            />
-          </div>
-          
-          <div>
-            <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-2">
+          <InputField
+            label="Email Address"
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            placeholder="Enter your email"
+            icon={Mail}
+            disabled={loading}
+            error={!!error}
+          />
+          <div className="space-y-2">
+            <label
+              className={`block text-sm font-medium ${COLORS.text.primary}`}
+            >
               Password
             </label>
-            <input
-              id="password"
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-              className="w-full border border-gray-300 rounded-lg px-3 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition duration-200"
-              placeholder="Enter your password"
-              disabled={loading}
-            />
-          </div>
-          
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full bg-blue-600 text-white py-3 px-4 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition duration-200 disabled:bg-blue-300 disabled:cursor-not-allowed"
-          >
-            {loading ? (
-              <div className="flex items-center justify-center">
-                <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2"></div>
-                Signing in...
+            <div className="relative">
+              <div
+                className={`absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none ${COLORS.text.muted}`}
+              >
+                <Lock className="h-5 w-5" />
               </div>
-            ) : (
-              "Sign In"
+              <input
+                type={showPassword ? "text" : "password"}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="Enter your password"
+                disabled={loading}
+                className={`
+                  w-full pl-10 pr-12 py-3
+                  ${COLORS.background.glass} backdrop-blur-sm
+                  ${error ? "border-red-500/50" : COLORS.border.light}
+                  border rounded-xl
+                  ${COLORS.text.primary}
+                  placeholder-gray-500
+                  focus:outline-none focus:ring-2 focus:${
+                    COLORS.border.ring
+                  } focus:border-transparent
+                  transition-all duration-300
+                  disabled:opacity-50 disabled:cursor-not-allowed
+                `}
+                required
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className={`absolute cursor-pointer inset-y-0 right-0 pr-3 flex items-center ${COLORS.text.muted} hover:${COLORS.text.secondary} transition-colors`}
+                aria-label={showPassword ? "Hide password" : "Show password"}
+              >
+                {showPassword ? (
+                  <EyeOff className="h-5 w-5" />
+                ) : (
+                  <Eye className="h-5 w-5" />
+                )}
+              </button>
+            </div>
+          </div>
+          <Button
+            type="submit" // Changed to submit type
+            variant="primary"
+            disabled={loading}
+            loading={loading}
+          >
+            {!loading && (
+              <div className="flex items-center justify-center space-x-2">
+                <span>Sign In</span>
+                <ArrowRight className="w-4 h-4" />
+              </div>
             )}
-          </button>
+          </Button>
         </form>
-        
         <div className="mt-6 text-center">
-          <p className="text-gray-600">
-            Don&lsquo;t have an account?{" "}
+          <p className={COLORS.text.secondary}>
+            Don&#39;t have an account?{" "}
             <button
+              type="button" // Added type
               onClick={() => router.push("/onboarding/register")}
-              className="text-blue-600 hover:text-blue-800 font-medium hover:underline"
+              className={`${COLORS.primary.blue[400]} hover:text-purple-400 cursor-pointer font-medium hover:underline transition-colors`}
             >
               Create one here
             </button>
-          </p>
-        </div>
-
-        {/* Demo Users Section */}
-        <div className="mt-8 p-4 bg-gray-50 rounded-lg">
-          <h3 className="text-sm font-semibold text-gray-700 mb-3">Demo Accounts</h3>
-          <div className="space-y-2">
-            {[
-              { role: "Field Operator", email: "operator@demo.com" },
-              { role: "JV Coordinator", email: "coordinator@demo.com" },
-              { role: "JV Partner", email: "partner@demo.com" },
-              { role: "Auditor", email: "auditor@demo.com" }
-            ].map((demo) => (
-              <button
-                key={demo.email}
-                onClick={() => handleDemoLogin(demo.email)}
-                className="block w-full text-left text-xs text-gray-600 hover:text-blue-600 hover:bg-white p-2 rounded transition"
-              >
-                <strong>{demo.role}:</strong> {demo.email} / demo123
-              </button>
-            ))}
-          </div>
-          <p className="text-xs text-gray-500 mt-2">
-            Click on any account to auto-fill the form
           </p>
         </div>
       </div>

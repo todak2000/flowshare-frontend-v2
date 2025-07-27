@@ -8,8 +8,6 @@ export function middleware(request: NextRequest) {
   const publicRoutes = [
     '/onboarding/login',
     '/onboarding/register',
-    '/api/auth/login',
-    '/api/auth/register'
   ];
 
   // Check if the current path is a public route

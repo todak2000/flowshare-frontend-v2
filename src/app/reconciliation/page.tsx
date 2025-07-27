@@ -1,63 +1,363 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-// src/app/reconciliation/page.tsx
 "use client";
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { useUser } from "../../../hook/useUser";
-import { firebaseService } from "../../../lib/firebase-service";
 import {
-  ReconciliationRun,
-  AllocationResult,
-  ReconciliationPeriodSummary,
-  ReconciliationReport,
-} from "../../../types";
-import LoadingSpinner from "../../../component/LoadingSpinner";
-import SummaryCard from "../../../component/SummaryCard";
-import Modal from "../../../component/Modal";
+  Play,
+  Download,
+  Calendar,
+  BarChart3,
+  TrendingUp,
+  TrendingDown,
+  Calculator,
+  CheckCircle,
+  Clock,
+  AlertTriangle,
+  Database,
+  Users,
+  Workflow,
+  RefreshCw,
+  X,
+  Info,
+  Activity,
+  Eye,
+} from "lucide-react";
+import { COLORS } from "../../../component/Home";
+import { useUser } from "../../../hook/useUser";
 import { formatDateForInput } from "../../../utils/date";
-import { formatFirebaseTimestampRange } from "../../../utils/timestampToPeriod";
+import { firebaseService } from "../../../lib/firebase-service";
+import LoadingSpinner from "../../../component/LoadingSpinner";
+import { ReconciliationReport, ReconciliationRun } from "../../../types";
 import { Timestamp } from "firebase/firestore";
+import { formatFirebaseTimestampRange } from "../../../utils/timestampToPeriod";
 
-export default function ReconciliationPage() {
-  const { auth, data: userData, loading: userLoading } = useUser();
+interface AllocationResult {
+  id: string;
+  reconciliation_id: string;
+  partner: string;
+  input_volume: number;
+  net_volume: number;
+  allocated_volume: number;
+  volume_loss?: number;
+  percentage: number;
+  start_date: Date;
+  end_date: Date;
+}
+
+interface ReconciliationPeriodSummary {
+  periodStart: Date;
+  periodEnd: Date;
+  totalProductionEntries: number;
+  totalTerminalReceipts: number;
+  partnersInvolved: string[];
+  readyForReconciliation: boolean;
+  issues: string[];
+}
+
+interface ReconciliationDateRange {
+  startDate: string;
+  endDate: string;
+}
+
+const formatDateRange = (startDate: Date, endDate: Date): string => {
+  return `${startDate.toLocaleDateString()} - ${endDate.toLocaleDateString()}`;
+};
+
+// Reusable Components
+interface SummaryCardProps {
+  title: string;
+  value: number | string;
+  unit?: string;
+  color: "blue" | "green" | "orange" | "purple" | "red";
+  icon: React.ComponentType<{ className?: string }>;
+  trend?: {
+    value: number;
+    isPositive: boolean;
+  };
+}
+
+const SummaryCard: React.FC<SummaryCardProps> = ({
+  title,
+  value,
+  unit = "",
+  color,
+  icon: Icon,
+  trend,
+}) => {
+  const colorClasses = {
+    blue: "from-blue-500/20 to-cyan-500/20 border-blue-500/30",
+    green: "from-green-500/20 to-emerald-500/20 border-green-500/30",
+    orange: "from-orange-500/20 to-yellow-500/20 border-orange-500/30",
+    purple: "from-purple-500/20 to-pink-500/20 border-purple-500/30",
+    red: "from-red-500/20 to-rose-500/20 border-red-500/30",
+  };
+
+  const iconColors = {
+    blue: "text-blue-400",
+    green: "text-green-400",
+    orange: "text-orange-400",
+    purple: "text-purple-400",
+    red: "text-red-400",
+  };
+
+  return (
+    <div
+      className={`bg-gradient-to-br ${colorClasses[color]} backdrop-blur-sm border rounded-2xl p-6 transition-all duration-300 hover:scale-105`}
+    >
+      <div className="flex items-center justify-between mb-4">
+        <div
+          className={`w-12 h-12 rounded-xl bg-white/10 flex items-center justify-center ${iconColors[color]}`}
+        >
+          <Icon className="w-6 h-6" />
+        </div>
+        {trend && (
+          <div
+            className={`flex items-center space-x-1 text-sm ${
+              trend.isPositive ? "text-green-400" : "text-red-400"
+            }`}
+          >
+            <TrendingUp
+              className={`w-4 h-4 ${trend.isPositive ? "" : "rotate-180"}`}
+            />
+            <span>{Math.abs(trend.value)}%</span>
+          </div>
+        )}
+      </div>
+      <div className="space-y-1">
+        <p className={`text-sm ${COLORS.text.muted}`}>{title}</p>
+        <p className={`text-2xl font-bold ${COLORS.text.primary}`}>
+          {typeof value === "number" ? value.toLocaleString() : value}
+          {unit}
+        </p>
+      </div>
+    </div>
+  );
+};
+
+interface InputFieldProps {
+  label: string;
+  type?: string;
+  value: string;
+  onChange: (value: string) => void;
+  placeholder?: string;
+  icon: React.ComponentType<{ className?: string }>;
+  disabled?: boolean;
+}
+
+const InputField: React.FC<InputFieldProps> = ({
+  label,
+  type = "text",
+  value,
+  onChange,
+  placeholder = "",
+  icon: Icon,
+  disabled = false,
+}) => (
+  <div className="space-y-2">
+    <label className={`block text-sm font-medium ${COLORS.text.primary}`}>
+      {label}
+    </label>
+    <div className="relative">
+      <div
+        className={`absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none ${COLORS.text.muted}`}
+      >
+        <Icon className="h-5 w-5" />
+      </div>
+      <input
+        type={type}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder={placeholder}
+        disabled={disabled}
+        className={`
+          w-full pl-10 pr-4 py-3 
+          ${COLORS.background.glass} backdrop-blur-sm 
+          ${COLORS.border.light} border rounded-xl 
+          ${COLORS.text.primary} 
+          placeholder-gray-500
+          focus:outline-none focus:ring-2 focus:${COLORS.border.ring} focus:border-transparent 
+          transition-all duration-300
+          disabled:opacity-50 disabled:cursor-not-allowed
+        `}
+      />
+    </div>
+  </div>
+);
+
+interface ModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  title: string;
+  children: React.ReactNode;
+  size?: "sm" | "md" | "lg" | "xl";
+}
+
+const Modal: React.FC<ModalProps> = ({
+  isOpen,
+  onClose,
+  title,
+  children,
+  size = "md",
+}) => {
+  if (!isOpen) return null;
+
+  const sizeClasses = {
+    sm: "sm:max-w-md",
+    md: "sm:max-w-lg",
+    lg: "sm:max-w-2xl",
+    xl: "sm:max-w-4xl",
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 overflow-y-auto">
+      <div className="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:block sm:p-0">
+        {/* Background overlay */}
+        <div
+          className="fixed inset-0 transition-opacity bg-black/50 backdrop-blur-sm"
+          onClick={onClose}
+        ></div>
+
+        {/* Modal panel */}
+        <div
+          className={`inline-block align-bottom ${COLORS.background.card} backdrop-blur-xl rounded-2xl text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle ${sizeClasses[size]} sm:w-full ${COLORS.border.light} border`}
+        >
+          <div className="px-6 pt-6 pb-4">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className={`text-lg font-semibold ${COLORS.text.primary}`}>
+                {title}
+              </h3>
+              <button
+                onClick={onClose}
+                className={`${COLORS.text.muted} hover:${COLORS.text.primary} transition-colors`}
+              >
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+            {children}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+interface PeriodSummaryDisplayProps {
+  summary: ReconciliationPeriodSummary;
+}
+
+const PeriodSummaryDisplay: React.FC<PeriodSummaryDisplayProps> = ({
+  summary,
+}) => (
+  <div
+    className={`p-4 rounded-xl border ${
+      summary.readyForReconciliation
+        ? "bg-green-500/10 border-green-500/20"
+        : "bg-red-500/10 border-red-500/20"
+    }`}
+  >
+    <h4
+      className={`text-sm font-semibold mb-3 flex items-center space-x-2 ${
+        summary.readyForReconciliation ? "text-green-400" : "text-red-400"
+      }`}
+    >
+      {summary.readyForReconciliation ? (
+        <CheckCircle className="w-4 h-4" />
+      ) : (
+        <AlertTriangle className="w-4 h-4" />
+      )}
+      <span>
+        Period Summary ({summary.periodStart.toLocaleDateString()} -{" "}
+        {summary.periodEnd.toLocaleDateString()})
+      </span>
+    </h4>
+
+    <div className="grid grid-cols-2 gap-4 text-sm mb-4">
+      <div className="flex justify-between">
+        <span className={COLORS.text.muted}>Production Entries:</span>
+        <span className={`${COLORS.text.primary} font-medium`}>
+          {summary.totalProductionEntries}
+        </span>
+      </div>
+      <div className="flex justify-between">
+        <span className={COLORS.text.muted}>Terminal Receipts:</span>
+        <span className={`${COLORS.text.primary} font-medium`}>
+          {summary.totalTerminalReceipts}
+        </span>
+      </div>
+    </div>
+
+    <div className="mb-4">
+      <span className={`${COLORS.text.muted} text-sm`}>Partners Involved:</span>
+      <div className="mt-2 flex flex-wrap gap-2">
+        {summary.partnersInvolved.map((partner) => (
+          <span
+            key={partner}
+            className="px-3 py-1 bg-blue-500/20 text-blue-400 rounded-full text-xs"
+          >
+            {partner}
+          </span>
+        ))}
+      </div>
+    </div>
+
+    {summary.issues.length > 0 && (
+      <div className="mb-4">
+        <span className="text-red-400 font-medium text-sm">Issues:</span>
+        <ul className="mt-1 text-sm text-red-300 space-y-1">
+          {summary.issues.map((issue, index) => (
+            <li key={index} className="flex items-start space-x-2">
+              <span className="text-red-400 mt-1">•</span>
+              <span>{issue}</span>
+            </li>
+          ))}
+        </ul>
+      </div>
+    )}
+
+    {summary.readyForReconciliation && (
+      <div className="p-3 bg-green-500/20 rounded-lg text-sm text-green-300">
+        ✓ Ready for reconciliation! All required data is available for this
+        period.
+      </div>
+    )}
+  </div>
+);
+
+// Main Reconciliation Page Component
+const ReconciliationPage: React.FC = () => {
   const router = useRouter();
   const [reconciliationRuns, setReconciliationRuns] = useState<
     ReconciliationRun[]
   >([]);
   const [selectedReport, setSelectedReport] =
     useState<ReconciliationReport | null>(null);
-
   const [allocationResults, setAllocationResults] = useState<
     AllocationResult[]
   >([]);
   const [periodSummary, setPeriodSummary] =
     useState<ReconciliationPeriodSummary | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [showRunForm, setShowRunForm] = useState(false);
-  const [selectedRun, setSelectedRun] = useState<ReconciliationRun | null>(
-    null
-  );
-  //  Default to current month
+  const [loading, setLoading] = useState<boolean>(false);
+  const [showRunForm, setShowRunForm] = useState<boolean>(false);
+  const [showReportModal, setShowReportModal] = useState<boolean>(false);
+ 
+  const { auth, data: userData, loading: userLoading } = useUser();
+
+  // Default to current month
   const now = new Date();
   const firstDayOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
   const lastDayOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
 
-  const [reconcileDateRange, setReconcileDateRange] = useState({
-    startDate: formatDateForInput(firstDayOfMonth),
-    endDate: formatDateForInput(lastDayOfMonth),
-  });
-  const [showReportModal, setShowReportModal] = useState(false);
+  const [reconcileDateRange, setReconcileDateRange] =
+    useState<ReconciliationDateRange>({
+      startDate: formatDateForInput(firstDayOfMonth),
+      endDate: formatDateForInput(lastDayOfMonth),
+    });
 
   useEffect(() => {
     if (!userLoading && !auth) {
       router.push("/onboarding/login");
       return;
     }
-
-    // if (userData?.role !== 'jv_coordinator' && userData?.role !== 'admin') {
-    //   router.push('/dashboard');
-    //   return;
-    // }
 
     loadReconciliationData();
   }, [userLoading, auth, userData, router]);
@@ -69,8 +369,8 @@ export default function ReconciliationPage() {
         firebaseService.getReconciliationRuns(),
         firebaseService.getAllocationResults(),
       ]);
-      setReconciliationRuns(runs);
-      setAllocationResults(allocations);
+      setReconciliationRuns(runs as any);
+      setAllocationResults(allocations as any);
     } catch (error) {
       console.error("Error loading reconciliation data:", error);
     } finally {
@@ -78,7 +378,7 @@ export default function ReconciliationPage() {
     }
   };
 
-  const handlePeriodSummaryCheck = async () => {
+  const handlePeriodSummaryCheck = async (): Promise<void> => {
     if (!reconcileDateRange.startDate || !reconcileDateRange.endDate) return;
 
     setLoading(true);
@@ -144,6 +444,47 @@ export default function ReconciliationPage() {
     }
   };
 
+  const exportReport = (report: ReconciliationReport): void => {
+    const csv = report.allocations.map((allocation) => ({
+      Partner: allocation.partner,
+      "Period Start": new Date(
+        allocation.start_date as Date
+      ).toLocaleDateString(),
+      "Period End": new Date(allocation.end_date as Date).toLocaleDateString(),
+      "Input Volume (BBL)": allocation.input_volume,
+      "Net Volume (BBL)": allocation.net_volume,
+      "Allocated Volume (BBL)": allocation.allocated_volume,
+      "Volume Loss (BBL)": allocation.volume_loss || 0,
+      "Share (%)": allocation.percentage,
+      "Efficiency (%)": (
+        (allocation.allocated_volume / Math.max(allocation.input_volume, 1)) *
+        100
+      ).toFixed(2),
+    }));
+
+    const csvContent = [
+      Object.keys(csv[0] || {}).join(","),
+      ...csv.map((row) => Object.values(row).join(",")),
+    ].join("\n");
+
+    const blob = new Blob([csvContent], { type: "text/csv" });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `reconciliation_report_${
+      new Date(report.reconciliation.start_date as Date)
+        .toISOString()
+        .split("T")[0]
+    }_to_${
+      new Date(report.reconciliation.end_date as Date)
+        .toISOString()
+        .split("T")[0]
+    }.csv`;
+    a.click();
+    window.URL.revokeObjectURL(url);
+  };
+
+  // Calculate statistics
   const totalVolume = reconciliationRuns.reduce(
     (sum, run) => sum + run.total_terminal_volume,
     0
@@ -156,157 +497,282 @@ export default function ReconciliationPage() {
   const completedRuns = reconciliationRuns.filter(
     (run) => run.status === "completed"
   ).length;
-
-  console.log(reconciliationRuns, "rerserswew");
+  
 
   if (userLoading) {
-    return <LoadingSpinner fullScreen message="Loading user data..." />;
+    return (
+      <div
+        className={`min-h-screen ${COLORS.background.gradient} flex flex-col items-center justify-center`}
+      >
+        <LoadingSpinner message="Wait..." />
+      </div>
+    );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className={`min-h-screen ${COLORS.background.gradient} pt-20`}>
       <div className="max-w-7xl mx-auto p-6">
         {/* Header */}
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">
-            Reconciliation Management
-          </h1>
-          <p className="text-gray-600">
-            Trigger period-based reconciliations and manage partner
-            back-allocations
-          </p>
+          <div className="flex items-center space-x-4 mb-4">
+            <div
+              className={`w-16 h-16 rounded-2xl bg-gradient-to-br ${COLORS.primary.blue[600]} ${COLORS.primary.purple[600]} flex items-center justify-center`}
+            >
+              <Calculator className="w-8 h-8 text-white" />
+            </div>
+            <div>
+              <h1
+                className={`text-3xl font-bold ${COLORS.text.primary} font-display`}
+              >
+                Reconciliation Management
+              </h1>
+              <p className={`${COLORS.text.secondary}`}>
+                Trigger period-based reconciliations and manage partner
+                back-allocations
+              </p>
+            </div>
+          </div>
         </div>
 
         {/* Summary Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
           <SummaryCard
             title="Total Runs"
             value={reconciliationRuns.length}
             color="blue"
+            icon={Database}
+            trend={{ value: 15.2, isPositive: true }}
           />
-          <SummaryCard title="Completed" value={completedRuns} color="green" />
+          <SummaryCard
+            title="Completed"
+            value={completedRuns}
+            color="green"
+            icon={CheckCircle}
+            trend={{ value: 8.7, isPositive: true }}
+          />
           <SummaryCard
             title="Total Volume"
-            value={totalVolume}
-            color="orange"
+            value={Math.round(totalVolume)}
             unit=" BBL"
+            color="orange"
+            icon={BarChart3}
           />
           <SummaryCard
             title="Avg Shrinkage"
             value={averageShrinkage.toFixed(2)}
-            color="purple"
             unit="%"
+            color="red"
+            icon={TrendingDown}
+            trend={{ value: 1.2, isPositive: false }}
           />
         </div>
 
         {/* Action Bar */}
-        <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200 mb-6">
-          <div className="flex justify-between items-center">
-            <div>
-              <h3 className="text-lg font-semibold">Period Reconciliation</h3>
-              <p className="text-sm text-gray-600">
-                Run reconciliations for a specific period (usually monthly)
-              </p>
+        <div
+          className={`${COLORS.background.card} backdrop-blur-xl ${COLORS.border.light} border rounded-2xl p-6 mb-8`}
+        >
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center space-y-4 sm:space-y-0">
+            <div className="flex items-start space-x-4">
+              <div
+                className={`w-12 h-12 rounded-xl bg-gradient-to-br ${COLORS.primary.blue[600]} ${COLORS.primary.purple[600]} flex items-center justify-center`}
+              >
+                <Workflow className="w-6 h-6 text-white" />
+              </div>
+              <div>
+                <h3 className={`text-lg font-semibold ${COLORS.text.primary}`}>
+                  Period Reconciliation
+                </h3>
+                <p className={`text-sm ${COLORS.text.secondary}`}>
+                  Run reconciliations for a specific period (usually monthly)
+                </p>
+              </div>
             </div>
             <button
               onClick={() => setShowRunForm(true)}
-              className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 transition"
+              className={`flex items-center space-x-2 px-6 py-3 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-xl hover:from-green-700 hover:to-emerald-700 transition-all duration-300 transform hover:scale-[1.02]`}
             >
-              Run Reconciliation
+              <Play className="w-4 h-4" />
+              <span>Run Reconciliation</span>
             </button>
           </div>
         </div>
 
         {/* Reconciliation Runs Table */}
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 mb-8">
-          <div className="p-6 border-b border-gray-200">
-            <h4 className="text-lg font-semibold">
-              Recent Reconciliation Runs
-            </h4>
+        <div
+          className={`${COLORS.background.card} backdrop-blur-xl ${COLORS.border.light} border rounded-2xl overflow-hidden`}
+        >
+          <div className="p-6 border-b border-white/10">
+            <div className="flex items-center space-x-3">
+              <RefreshCw className={`w-5 h-5 ${COLORS.primary.blue[400]}`} />
+              <h4 className={`text-lg font-semibold ${COLORS.text.primary}`}>
+                Recent Reconciliation Runs
+              </h4>
+              <span
+                className={`px-3 py-1 rounded-full text-xs ${COLORS.background.glassHover} ${COLORS.text.secondary}`}
+              >
+                {reconciliationRuns.length} runs
+              </span>
+            </div>
           </div>
+
           <div className="overflow-x-auto">
             {loading ? (
               <div className="p-8 text-center">
                 <LoadingSpinner message="Loading reconciliation runs..." />
               </div>
             ) : reconciliationRuns.length === 0 ? (
-              <div className="p-8 text-center text-gray-500">
-                No reconciliation runs yet.
-                <div className="mt-2">
-                  <button
-                    onClick={() => setShowRunForm(true)}
-                    className="text-green-600 hover:underline"
-                  >
-                    Run your first reconciliation
-                  </button>
-                </div>
+              <div className="p-8 text-center">
+                <Calculator
+                  className={`w-16 h-16 ${COLORS.text.muted} mx-auto mb-4 opacity-50`}
+                />
+                <p className={`text-lg ${COLORS.text.secondary} mb-2`}>
+                  No reconciliation runs yet
+                </p>
+                <button
+                  onClick={() => setShowRunForm(true)}
+                  className="text-green-400 hover:text-green-300 font-medium hover:underline transition-colors"
+                >
+                  Run your first reconciliation
+                </button>
               </div>
             ) : (
               <table className="w-full">
-                <thead className="bg-gray-50">
+                <thead className={`${COLORS.background.overlay}`}>
                   <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Period
+                    <th
+                      className={`px-6 py-4 text-left text-xs font-medium ${COLORS.text.muted} uppercase tracking-wider`}
+                    >
+                      Date Period
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Input Volume
+                    <th
+                      className={`px-6 py-4 text-left text-xs font-medium ${COLORS.text.muted} uppercase tracking-wider`}
+                    >
+                      Total Volume
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Terminal Volume
+                    <th
+                      className={`px-6 py-4 text-left text-xs font-medium ${COLORS.text.muted} uppercase tracking-wider`}
+                    >
+                      Allocated Volume
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th
+                      className={`px-6 py-4 text-left text-xs font-medium ${COLORS.text.muted} uppercase tracking-wider`}
+                    >
                       Volume Loss
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th
+                      className={`px-6 py-4 text-left text-xs font-medium ${COLORS.text.muted} uppercase tracking-wider`}
+                    >
                       Shrinkage %
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th
+                      className={`px-6 py-4 text-left text-xs font-medium ${COLORS.text.muted} uppercase tracking-wider`}
+                    >
                       Run Date
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th
+                      className={`px-6 py-4 text-left text-xs font-medium ${COLORS.text.muted} uppercase tracking-wider`}
+                    >
+                      Status
+                    </th>
+                    <th
+                      className={`px-6 py-4 text-left text-xs font-medium ${COLORS.text.muted} uppercase tracking-wider`}
+                    >
                       Actions
                     </th>
                   </tr>
                 </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
+                <tbody className="divide-y divide-white/10">
                   {reconciliationRuns.map((run) => {
                     const volumeLoss =
                       run.total_input_volume - run.total_terminal_volume;
                     return (
-                      <tr key={run.id} className="hover:bg-gray-50">
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          <div>
-                            <div className="font-medium">
-                              {/* {new Date(run.start_date).toLocaleDateString()} -{" "}
-                              {new Date(run.end_date).toLocaleDateString()} */}
+                      <tr
+                        key={run.id}
+                        className="hover:bg-white/5 transition-colors"
+                      >
+                        <td
+                          className={`px-6 py-4 whitespace-nowrap ${COLORS.text.primary}`}
+                        >
+                          <div className="flex flex-col">
+                            <span className="text-sm font-medium">
                               {formatFirebaseTimestampRange(
                                 run.start_date as Timestamp,
                                 run.end_date as Timestamp
                               )}
-                            </div>
+                            </span>
                           </div>
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        <td
+                          className={`px-6 py-4 whitespace-nowrap text-sm ${COLORS.text.primary} font-medium`}
+                        >
                           {run.total_input_volume.toLocaleString()} BBL
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-blue-600">
+                        <td
+                          className={`px-6 py-4 whitespace-nowrap text-sm font-medium text-blue-400`}
+                        >
                           {run.total_terminal_volume.toLocaleString()} BBL
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-red-600">
+                        <td
+                          className={`px-6 py-4 whitespace-nowrap text-sm font-medium text-red-400`}
+                        >
                           {volumeLoss.toLocaleString()} BBL
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          {run.shrinkage_factor.toFixed(2)}%
+                        <td
+                          className={`px-6 py-4 whitespace-nowrap text-sm ${COLORS.text.primary}`}
+                        >
+                          <span
+                            className={`px-2 py-1 rounded-full text-xs ${
+                              run.shrinkage_factor < 2
+                                ? "bg-green-500/20 text-green-400"
+                                : run.shrinkage_factor < 3
+                                ? "bg-yellow-500/20 text-yellow-400"
+                                : "bg-red-500/20 text-red-400"
+                            }`}
+                          >
+                            {run.shrinkage_factor.toFixed(2)}%
+                          </span>
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                          {new Date(run.timestamp).toLocaleDateString()}
+                        <td
+                          className={`px-6 py-4 whitespace-nowrap ${COLORS.text.primary}`}
+                        >
+                          <div className="flex flex-col">
+                            <span className="text-sm">
+                              {new Date(run.timestamp).toLocaleDateString()}
+                            </span>
+                            <span className={`text-xs ${COLORS.text.muted}`}>
+                              {new Date(run.timestamp).toLocaleTimeString()}
+                            </span>
+                          </div>
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                        <td className="px-6 py-4 whitespace-nowrap text-sm">
+                          <span
+                            className={`inline-flex items-center space-x-1 px-3 py-1 rounded-full text-xs ${
+                              run.status === "completed"
+                                ? "bg-green-500/20 text-green-400"
+                                : run.status === "in_progress"
+                                ? "bg-yellow-500/20 text-yellow-400"
+                                : "bg-red-500/20 text-red-400"
+                            }`}
+                          >
+                            {run.status === "completed" && (
+                              <CheckCircle className="w-3 h-3" />
+                            )}
+                            {run.status === "in_progress" && (
+                              <Clock className="w-3 h-3" />
+                            )}
+                            {run.status === "failed" && (
+                              <AlertTriangle className="w-3 h-3" />
+                            )}
+                            <span className="capitalize">{run.status}</span>
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm">
                           <button
                             onClick={() => handleViewReport(run)}
-                            className="text-blue-600 hover:text-blue-900"
+                            className="flex items-center space-x-1 px-3 py-1 rounded-lg hover:bg-blue-500/20 text-blue-400 transition-colors"
                           >
-                            View Report
+                            <Eye className="w-4 h-4" />
+                            <span>View Report</span>
                           </button>
                         </td>
                       </tr>
@@ -327,45 +793,34 @@ export default function ReconciliationPage() {
           setPeriodSummary(null);
         }}
         title="Run Period Reconciliation"
+        size="lg"
       >
-        <div className="space-y-4">
+        <div className="space-y-6">
           <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Start Date
-              </label>
-              <input
-                type="date"
-                value={reconcileDateRange.startDate}
-                onChange={(e) =>
-                  setReconcileDateRange((prev) => ({
-                    ...prev,
-                    startDate: e.target.value,
-                  }))
-                }
-                className="w-full border border-gray-300 rounded-md p-2 focus:outline-none focus:ring-2 focus:ring-green-500"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                End Date
-              </label>
-              <input
-                type="date"
-                value={reconcileDateRange.endDate}
-                onChange={(e) =>
-                  setReconcileDateRange((prev) => ({
-                    ...prev,
-                    endDate: e.target.value,
-                  }))
-                }
-                className="w-full border border-gray-300 rounded-md p-2 focus:outline-none focus:ring-2 focus:ring-green-500"
-              />
-            </div>
+            <InputField
+              label="Start Date"
+              type="date"
+              value={reconcileDateRange.startDate}
+              onChange={(value) =>
+                setReconcileDateRange((prev) => ({ ...prev, startDate: value }))
+              }
+              icon={Calendar}
+              disabled={loading}
+            />
+            <InputField
+              label="End Date"
+              type="date"
+              value={reconcileDateRange.endDate}
+              onChange={(value) =>
+                setReconcileDateRange((prev) => ({ ...prev, endDate: value }))
+              }
+              icon={Calendar}
+              disabled={loading}
+            />
           </div>
 
           {/* Period Summary Check */}
-          <div className="flex gap-2">
+          <div className="flex items-center gap-4">
             <button
               onClick={handlePeriodSummaryCheck}
               disabled={
@@ -373,148 +828,94 @@ export default function ReconciliationPage() {
                 !reconcileDateRange.startDate ||
                 !reconcileDateRange.endDate
               }
-              className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 transition disabled:bg-blue-300"
+              className={`flex items-center space-x-2 px-4 py-2 bg-gradient-to-r ${COLORS.primary.blue[600]} ${COLORS.primary.purple[600]} text-white rounded-xl hover:${COLORS.primary.blue[700]} hover:${COLORS.primary.purple[700]} transition-all duration-300 disabled:opacity-50`}
             >
-              {loading ? "Checking..." : "Check Period"}
+              {loading ? (
+                <>
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                  <span>Checking...</span>
+                </>
+              ) : (
+                <>
+                  <Activity className="w-4 h-4" />
+                  <span>Check Period</span>
+                </>
+              )}
             </button>
-            <span className="text-sm text-gray-500 flex items-center">
+            <span className={`text-sm ${COLORS.text.muted}`}>
               Verify data availability for the selected period
             </span>
           </div>
 
           {/* Period Summary Display */}
-          {periodSummary && (
-            <div
-              className={`p-4 rounded-md ${
-                periodSummary.readyForReconciliation
-                  ? "bg-green-50 border border-green-200"
-                  : "bg-red-50 border border-red-200"
-              }`}
-            >
-              <h4
-                className={`text-sm font-semibold mb-2 ${
-                  periodSummary.readyForReconciliation
-                    ? "text-green-800"
-                    : "text-red-800"
-                }`}
-              >
-                Period Summary (
-                {new Date(periodSummary.periodStart).toLocaleDateString()} -{" "}
-                {new Date(periodSummary.periodEnd).toLocaleDateString()})
+          {periodSummary && <PeriodSummaryDisplay summary={periodSummary} />}
+
+          {/* Information Cards */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="bg-yellow-500/10 border border-yellow-500/20 rounded-xl p-4">
+              <h4 className="text-sm font-semibold text-yellow-400 mb-2 flex items-center space-x-2">
+                <Info className="w-4 h-4" />
+                <span>Period Reconciliation</span>
               </h4>
-
-              <div className="grid grid-cols-2 gap-4 text-sm mb-3">
-                <div>
-                  <span className="text-gray-600">Production Entries:</span>
-                  <span className="ml-2 font-medium">
-                    {periodSummary.totalProductionEntries}
-                  </span>
-                </div>
-                <div>
-                  <span className="text-gray-600">Terminal Receipts:</span>
-                  <span className="ml-2 font-medium">
-                    {periodSummary.totalTerminalReceipts}
-                  </span>
-                </div>
-              </div>
-
-              <div className="mb-3">
-                <span className="text-gray-600 text-sm">
-                  Partners Involved:
-                </span>
-                <div className="mt-1">
-                  {periodSummary.partnersInvolved.length > 0 ? (
-                    <div className="flex flex-wrap gap-1">
-                      {periodSummary.partnersInvolved.map((partner) => (
-                        <span
-                          key={partner}
-                          className="bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded"
-                        >
-                          {partner}
-                        </span>
-                      ))}
-                    </div>
-                  ) : (
-                    <span className="text-red-600 text-sm">
-                      No partners found
-                    </span>
-                  )}
-                </div>
-              </div>
-
-              {periodSummary.issues.length > 0 && (
-                <div>
-                  <span className="text-red-600 font-medium text-sm">
-                    Issues:
-                  </span>
-                  <ul className="mt-1 text-sm text-red-700 list-disc list-inside">
-                    {periodSummary.issues.map((issue, index) => (
-                      <li key={index}>{issue}</li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-
-              {periodSummary.readyForReconciliation && (
-                <div className="mt-3 p-2 bg-green-100 rounded text-sm text-green-800">
-                  ✓ Ready for reconciliation! All required data is available for
-                  this period.
-                </div>
-              )}
+              <ul className="text-sm text-yellow-300/80 space-y-1">
+                <li>
+                  • Processes ALL production entries and terminal receipts in
+                  selected period
+                </li>
+                <li>• Usually done monthly (e.g., 1st to 31st of a month)</li>
+                <li>
+                  • System checks if reconciliation already exists for this
+                  period
+                </li>
+                <li>
+                  • Back-allocation calculated proportionally for all partners
+                </li>
+              </ul>
             </div>
-          )}
 
-          <div className="bg-yellow-50 p-4 rounded-md">
-            <h4 className="text-sm font-semibold text-yellow-800 mb-2">
-              Period Reconciliation:
-            </h4>
-            <ul className="text-sm text-yellow-700 space-y-1">
-              <li>
-                • Reconciliation will process ALL production entries and
-                terminal receipts in the selected period
-              </li>
-              <li>• Usually done monthly (e.g., 1st to 31st of a month)</li>
-              <li>
-                • System will check if reconciliation already exists for this
-                period
-              </li>
-              <li>
-                • Back-allocation will be calculated proportionally for all
-                partners
-              </li>
-            </ul>
-          </div>
-
-          <div className="bg-blue-50 p-4 rounded-md">
-            <p className="text-sm text-blue-800">
-              <strong>Back-Allocation Process:</strong> This will aggregate all
-              production data and terminal receipts for the selected period,
-              then distribute the total terminal volume proportionally to each
-              partner based on their net volume contributions.
-            </p>
+            <div className="bg-blue-500/10 border border-blue-500/20 rounded-xl p-4">
+              <h4 className="text-sm font-semibold text-blue-400 mb-2 flex items-center space-x-2">
+                <Calculator className="w-4 h-4" />
+                <span>Back-Allocation Process</span>
+              </h4>
+              <p className="text-sm text-blue-300/80">
+                Aggregates all production data and terminal receipts for the
+                selected period, then distributes the total terminal volume
+                proportionally to each partner based on their net volume
+                contributions.
+              </p>
+            </div>
           </div>
 
           <div className="flex gap-3 pt-4">
             <button
               onClick={handleRunReconciliation}
               disabled={
-                !!(
-                  loading ||
-                  !reconcileDateRange?.startDate ||
-                  !reconcileDateRange?.endDate ||
-                  (periodSummary && !periodSummary.readyForReconciliation)
-                )
+                loading ||
+                !reconcileDateRange?.startDate ||
+                !reconcileDateRange?.endDate ||
+                !periodSummary?.readyForReconciliation
               }
-              className="flex-1 bg-green-600 text-white py-2 px-4 rounded hover:bg-green-700 transition disabled:bg-green-300 disabled:cursor-not-allowed"
+              className={`flex-1 bg-gradient-to-r from-green-600 to-emerald-600 text-white py-3 px-4 rounded-xl font-medium hover:from-green-700 hover:to-emerald-700 transition-all duration-300 disabled:opacity-50 flex items-center justify-center space-x-2`}
             >
-              {loading ? "Processing..." : "Run Period Reconciliation"}
+              {loading ? (
+                <>
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                  <span>Processing...</span>
+                </>
+              ) : (
+                <>
+                  <Play className="w-4 h-4" />
+                  <span>Run Period Reconciliation</span>
+                </>
+              )}
             </button>
             <button
               onClick={() => {
                 setShowRunForm(false);
                 setPeriodSummary(null);
               }}
-              className="flex-1 bg-gray-300 text-gray-700 py-2 px-4 rounded hover:bg-gray-400 transition"
+              className={`flex-1 ${COLORS.background.glass} ${COLORS.text.primary} py-3 px-4 rounded-xl font-medium hover:${COLORS.background.glassHover} transition-all duration-300 ${COLORS.border.light} border`}
             >
               Cancel
             </button>
@@ -527,49 +928,37 @@ export default function ReconciliationPage() {
         isOpen={showReportModal}
         onClose={() => setShowReportModal(false)}
         title={`Reconciliation Report - ${
-          selectedReport?.reconciliation.start_date
-            ? `${formatFirebaseTimestampRange(
+          selectedReport
+            ? formatFirebaseTimestampRange(
                 selectedReport.reconciliation.start_date as Timestamp,
                 selectedReport.reconciliation.end_date as Timestamp
-              )}`
+              )
             : ""
         }`}
+        size="xl"
       >
         {selectedReport && (
           <div className="space-y-6">
             {/* Period Info */}
-            <div className="bg-blue-50 p-4 rounded-lg">
-              <h4 className="font-semibold mb-2 text-blue-900">
-                Reconciliation Period
+            <div className="bg-blue-500/10 border border-blue-500/20 rounded-xl p-4">
+              <h4 className="font-semibold mb-3 text-blue-400 flex items-center space-x-2">
+                <Calendar className="w-4 h-4" />
+                <span>Reconciliation Period</span>
               </h4>
-              <div className="grid grid-cols-2 gap-4 text-sm">
-                <div>
-                  <span className="text-blue-700">Period:</span>
-                  <span className="ml-2 font-medium">
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm">
+                <div className="flex justify-between">
+                  <span className={COLORS.text.muted}>Period:</span>
+                  <span className={`${COLORS.text.primary} font-medium`}>
                     {formatFirebaseTimestampRange(
                       selectedReport.reconciliation.start_date as Timestamp,
                       selectedReport.reconciliation.end_date as Timestamp
                     )}
                   </span>
                 </div>
-                <div>
-                  <span className="text-blue-700">Days:</span>
-                  <span className="ml-2 font-medium">
-                    {Math.ceil(
-                      (new Date(
-                        selectedReport.reconciliation.end_date as Date
-                      ).getTime() -
-                        new Date(
-                          selectedReport.reconciliation.start_date as Date
-                        ).getTime()) /
-                        (1000 * 60 * 60 * 24)
-                    )}{" "}
-                    days
-                  </span>
-                </div>
-                <div>
-                  <span className="text-blue-700">Run Date:</span>
-                  <span className="ml-2 font-medium">
+                
+                <div className="flex justify-between">
+                  <span className={COLORS.text.muted}>Run Date:</span>
+                  <span className={`${COLORS.text.primary} font-medium`}>
                     {new Date(
                       selectedReport.reconciliation.timestamp
                     ).toLocaleDateString()}
@@ -579,45 +968,52 @@ export default function ReconciliationPage() {
             </div>
 
             {/* Summary */}
-            <div className="bg-gray-50 p-4 rounded-lg">
-              <h4 className="font-semibold mb-3">Volume Summary</h4>
-              <div className="grid grid-cols-2 gap-4 text-sm">
-                <div>
-                  <span className="text-gray-600">Total Partners:</span>
-                  <span className="ml-2 font-medium">
+            <div
+              className={`${COLORS.background.glass} rounded-xl p-4 ${COLORS.border.light} border`}
+            >
+              <h4
+                className={`font-semibold mb-3 ${COLORS.text.primary} flex items-center space-x-2`}
+              >
+                <BarChart3 className="w-4 h-4" />
+                <span>Volume Summary</span>
+              </h4>
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm">
+                <div className="flex justify-between">
+                  <span className={COLORS.text.muted}>Total Partners:</span>
+                  <span className={`${COLORS.text.primary} font-medium`}>
                     {selectedReport.summary.totalPartners}
                   </span>
                 </div>
-                <div>
-                  <span className="text-gray-600">Input Volume:</span>
-                  <span className="ml-2 font-medium">
+                <div className="flex justify-between">
+                  <span className={COLORS.text.muted}>Input Volume:</span>
+                  <span className={`${COLORS.text.primary} font-medium`}>
                     {selectedReport.summary.totalInputVolume.toLocaleString()}{" "}
                     BBL
                   </span>
                 </div>
-                <div>
-                  <span className="text-gray-600">Terminal Volume:</span>
-                  <span className="ml-2 font-medium">
+                <div className="flex justify-between">
+                  <span className={COLORS.text.muted}>Terminal Volume:</span>
+                  <span className={`${COLORS.text.primary} font-medium`}>
                     {selectedReport.summary.actualTerminalVolume.toLocaleString()}{" "}
                     BBL
                   </span>
                 </div>
-                <div>
-                  <span className="text-gray-600">Total Volume Loss:</span>
-                  <span className="ml-2 font-medium text-red-600">
+                <div className="flex justify-between">
+                  <span className={COLORS.text.muted}>Volume Loss:</span>
+                  <span className="text-red-400 font-medium">
                     {selectedReport.summary.totalVolumeLoss.toLocaleString()}{" "}
                     BBL
                   </span>
                 </div>
-                <div>
-                  <span className="text-gray-600">Shrinkage:</span>
-                  <span className="ml-2 font-medium">
+                <div className="flex justify-between">
+                  <span className={COLORS.text.muted}>Shrinkage:</span>
+                  <span className={`text-orange-400 font-medium`}>
                     {selectedReport.summary.shrinkagePercentage.toFixed(2)}%
                   </span>
                 </div>
-                <div>
-                  <span className="text-gray-600">Allocated Volume:</span>
-                  <span className="ml-2 font-medium text-green-600">
+                <div className="flex justify-between">
+                  <span className={COLORS.text.muted}>Allocated Volume:</span>
+                  <span className="text-green-400 font-medium">
                     {selectedReport.summary.totalAllocatedVolume.toLocaleString()}{" "}
                     BBL
                   </span>
@@ -627,62 +1023,93 @@ export default function ReconciliationPage() {
 
             {/* Partner Allocations */}
             <div>
-              <h4 className="font-semibold mb-3">Partner Allocations</h4>
+              <h4
+                className={`font-semibold mb-3 ${COLORS.text.primary} flex items-center space-x-2`}
+              >
+                <Users className="w-4 h-4" />
+                <span>Partner Allocations</span>
+              </h4>
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
-                  <thead className="bg-gray-50">
+                  <thead className={`${COLORS.background.overlay}`}>
                     <tr>
-                      <th className="px-3 py-2 text-left font-medium text-gray-500">
+                      <th
+                        className={`px-3 py-3 text-left font-medium ${COLORS.text.muted} uppercase tracking-wider`}
+                      >
                         Partner
                       </th>
-                      <th className="px-3 py-2 text-left font-medium text-gray-500">
-                        Input (BBL)
+                      <th
+                        className={`px-3 py-3 text-left font-medium ${COLORS.text.muted} uppercase tracking-wider`}
+                      >
+                        Input Vol
                       </th>
-                      <th className="px-3 py-2 text-left font-medium text-gray-500">
-                        Allocated (BBL)
+                      <th
+                        className={`px-3 py-3 text-left font-medium ${COLORS.text.muted} uppercase tracking-wider`}
+                      >
+                        Allocated Vol
                       </th>
-                      <th className="px-3 py-2 text-left font-medium text-gray-500">
-                        Loss (BBL)
+                      <th
+                        className={`px-3 py-3 text-left font-medium ${COLORS.text.muted} uppercase tracking-wider`}
+                      >
+                        GAIN/Loss
                       </th>
-                      <th className="px-3 py-2 text-left font-medium text-gray-500">
-                        Share (%)
+                      <th
+                        className={`px-3 py-3 text-left font-medium ${COLORS.text.muted} uppercase tracking-wider`}
+                      >
+                        Share
                       </th>
-                      <th className="px-3 py-2 text-left font-medium text-gray-500">
-                        Efficiency (%)
+                      <th
+                        className={`px-3 py-3 text-left font-medium ${COLORS.text.muted} uppercase tracking-wider`}
+                      >
+                        Efficiency 
                       </th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-gray-200">
+                  <tbody className="divide-y divide-white/10">
                     {selectedReport.allocations.map((allocation) => {
                       const efficiency =
                         (allocation.allocated_volume /
                           Math.max(allocation.input_volume, 1)) *
                         100;
                       return (
-                        <tr key={allocation.id}>
-                          <td className="px-3 py-2 font-medium">
-                            {allocation.partner}
+                        <tr
+                          key={allocation.id}
+                          className="hover:bg-white/5 transition-colors"
+                        >
+                          <td
+                            className={`px-3 py-3 font-medium ${COLORS.text.primary}`}
+                          >
+                            <div className="flex items-center space-x-2">
+                              <div className="w-2 h-2 bg-blue-400 rounded-full"></div>
+                              <span>{allocation.partner}</span>
+                            </div>
                           </td>
-                          <td className="px-3 py-2">
-                            {allocation.input_volume.toLocaleString()}
+                          <td className={`px-3 py-3 ${COLORS.text.primary}`}>
+                            {allocation.input_volume.toLocaleString()} bbl
                           </td>
-                          <td className="px-3 py-2 text-green-600 font-medium">
-                            {allocation.allocated_volume.toLocaleString()}
+                          <td className="px-3 py-3 text-green-400 font-medium">
+                            {allocation.allocated_volume.toLocaleString()} bbl
                           </td>
-                          <td className="px-3 py-2 text-red-600 font-medium">
-                            {(allocation.volume_loss || 0).toLocaleString()}
+                          <td
+                            className={`px-3 py-3 font-medium ${
+                              allocation.volume_loss < 0
+                                ? "text-green-400"
+                                : "text-red-400"
+                            }`}
+                          >
+                            {(allocation.volume_loss < 0 ?-allocation.volume_loss: allocation.volume_loss || 0).toLocaleString()} bbl
                           </td>
-                          <td className="px-3 py-2">
+                          <td className={`px-3 py-3 ${COLORS.text.primary}`}>
                             {allocation.percentage.toFixed(2)}%
                           </td>
-                          <td className="px-3 py-2">
+                          <td className="px-3 py-3">
                             <span
-                              className={`px-2 py-1 rounded text-xs font-medium ${
+                              className={`px-2 py-1 rounded-full text-xs font-medium ${
                                 efficiency >= 95
-                                  ? "bg-green-100 text-green-800"
+                                  ? "bg-green-500/20 text-green-400"
                                   : efficiency >= 90
-                                  ? "bg-yellow-100 text-yellow-800"
-                                  : "bg-red-100 text-red-800"
+                                  ? "bg-yellow-500/20 text-yellow-400"
+                                  : "bg-red-500/20 text-red-400"
                               }`}
                             >
                               {efficiency.toFixed(1)}%
@@ -698,60 +1125,15 @@ export default function ReconciliationPage() {
 
             <div className="flex gap-3 pt-4">
               <button
-                onClick={() => {
-                  // Export reconciliation report
-                  const csv = selectedReport.allocations.map((allocation) => ({
-                    Partner: allocation.partner,
-                    "Period Start": new Date(
-                      allocation.start_date as Date
-                    ).toLocaleDateString(),
-                    "Period End": new Date(
-                      allocation.end_date as Date
-                    ).toLocaleDateString(),
-                    "Input Volume (BBL)": allocation.input_volume,
-                    "Net Volume (BBL)": allocation.net_volume,
-                    "Allocated Volume (BBL)": allocation.allocated_volume,
-                    "Volume Loss (BBL)": allocation.volume_loss || 0,
-                    "Share (%)": allocation.percentage,
-                    "Efficiency (%)": (
-                      (allocation.allocated_volume /
-                        Math.max(allocation.input_volume, 1)) *
-                      100
-                    ).toFixed(2),
-                  }));
-
-                  const csvContent =
-                    "data:text/csv;charset=utf-8," +
-                    Object.keys(csv[0] || {}).join(",") +
-                    "\n" +
-                    csv.map((row) => Object.values(row).join(",")).join("\n");
-
-                  const encodedUri = encodeURI(csvContent);
-                  const link = document.createElement("a");
-                  link.setAttribute("href", encodedUri);
-                  link.setAttribute(
-                    "download",
-                    `reconciliation_report_${
-                      new Date(selectedReport.reconciliation.start_date as Date)
-                        .toISOString()
-                        .split("T")[0]
-                    }_to_${
-                      new Date(selectedReport.reconciliation.end_date as Date)
-                        .toISOString()
-                        .split("T")[0]
-                    }.csv`
-                  );
-                  document.body.appendChild(link);
-                  link.click();
-                  document.body.removeChild(link);
-                }}
-                className="bg-green-600 text-white py-2 px-4 rounded hover:bg-green-700 transition"
+                onClick={() => exportReport(selectedReport)}
+                className="flex items-center space-x-2 bg-gradient-to-r from-green-600 to-emerald-600 text-white py-3 px-4 rounded-xl font-medium hover:from-green-700 hover:to-emerald-700 transition-all duration-300"
               >
-                Export Report
+                <Download className="w-4 h-4" />
+                <span>Export Report</span>
               </button>
               <button
                 onClick={() => setShowReportModal(false)}
-                className="bg-gray-300 text-gray-700 py-2 px-4 rounded hover:bg-gray-400 transition"
+                className={`${COLORS.background.glass} ${COLORS.text.primary} py-3 px-4 rounded-xl font-medium hover:${COLORS.background.glassHover} transition-all duration-300 ${COLORS.border.light} border`}
               >
                 Close
               </button>
@@ -761,4 +1143,5 @@ export default function ReconciliationPage() {
       </Modal>
     </div>
   );
-}
+};
+export default ReconciliationPage;

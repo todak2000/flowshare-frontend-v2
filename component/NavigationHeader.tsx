@@ -1,62 +1,350 @@
-// component/NavigationHeader.tsx
-'use client'
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { useUser } from '../hook/useUser';
-import { firebaseService } from '../lib/firebase-service';
+/* eslint-disable @typescript-eslint/no-explicit-any */
+"use client";
+import React, { useState } from "react";
+import { usePathname, useRouter } from "next/navigation";
+import {
+  ChevronDown,
+  User,
+  Settings,
+  LogOut,
+  Shield,
+  BarChart3,
+  Database,
+  Activity,
+  Users,
+  Droplet,
+  Bell,
+  Search,
+} from "lucide-react";
+import { Permission, UserRole } from "../types";
+import { COLORS } from "./Home";
+import { useUser } from "../hook/useUser";
+import { Logo } from "./Logo";
 
-export default function NavigationHeader() {
-  const { auth, data: userData, loading } = useUser();
-  const router = useRouter();
-  const [showUserMenu, setShowUserMenu] = useState(false);
+// TypeScript Interfaces
+interface User {
+  uid: string;
+  email: string;
+  role: UserRole;
+  company: string;
+  permissions: Permission[];
+}
 
-  const handleSignOut = async () => {
-    try {
-      await firebaseService.signOut();
-      document.cookie = 'authToken=; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT;';
-      localStorage.removeItem('user');
-      router.push('/onboarding/login');
-    } catch (error) {
-      console.error('Error signing out:', error);
-    }
+interface NavigationItem {
+  label: string;
+  href: string;
+  icon: React.ComponentType<{ className?: string }>;
+  active: boolean;
+}
+
+
+
+
+// Navigation Items Configuration
+const getNavigationItems = (
+  userData: User,
+  currentPath: string
+): NavigationItem[] => {
+  if (!userData?.role) return [];
+
+  const baseItems: NavigationItem[] = [
+    {
+      label: "Dashboard",
+      href: "/dashboard",
+      icon: Activity,
+      active:
+        currentPath.includes("/dashboard") &&
+        currentPath.split("/").length <= 2,
+    },
+  ];
+
+  const roleSpecificItems: Record<UserRole, NavigationItem[]> = {
+    field_operator: [
+      {
+        label: "Production Data",
+        href: "/production",
+        icon: BarChart3,
+        active: currentPath.includes("/production"),
+      },
+    ],
+    jv_coordinator: [
+      {
+        label: "Production Data",
+        href: "/production",
+        icon: BarChart3,
+        active: currentPath.includes("/production"),
+      },
+      {
+        label: "Reconciliation",
+        href: "/reconciliation",
+        icon: Shield,
+        active: currentPath.includes("/reconciliation"),
+      },
+      // {
+      //   label: "Terminal Reciept",
+      //   href: "/terminal",
+      //   icon: Shield,
+      //   active: currentPath.includes("/terminal"),
+      // },
+    ],
+    admin: [
+      {
+        label: "Production Data",
+        href: "/production",
+        icon: BarChart3,
+        active: currentPath.includes("/production"),
+      },
+      {
+        label: "Reconciliation",
+        href: "/reconciliation",
+        icon: Shield,
+        active: currentPath.includes("/reconciliation"),
+      },
+    ],
+    jv_partner: [
+      {
+        label: "Production Data",
+        href: "/production",
+        icon: BarChart3,
+        active: currentPath.includes("/production"),
+      },
+    ],
+    auditor: [
+      {
+        label: "Production Data",
+        href: "/production",
+        icon: BarChart3,
+        active: currentPath.includes("/production"),
+      },
+      {
+        label: "Audit Logs",
+        href: "/audit",
+        icon: Database,
+        active: currentPath.includes("/audit"),
+      },
+      {
+        label: "Data Integrity",
+        href: "/integrity",
+        icon: Shield,
+        active: currentPath.includes("/integrity"),
+      },
+    ],
   };
 
-  const getNavigationItems = () => {
-    if (!userData?.role) return [];
+  return [...baseItems, ...(roleSpecificItems[userData.role] || [])];
+};
 
-    const baseItems = [
-      { label: 'Dashboard', href: '/dashboard' },
-    ];
+// User Menu Component
+interface UserMenuProps {
+  userData: User;
+  showUserMenu: boolean;
+  setShowUserMenu: (show: boolean) => void;
+  onSignOut: () => void;
+  router: any;
+}
 
-    switch (userData.role) {
-      case 'field_operator':
-        return [
-          ...baseItems,
-          { label: 'Production Data', href: '/production' },
-        ];
-      case 'jv_coordinator':
-      case 'admin':
-        return [
-          ...baseItems,
-          { label: 'Production Data', href: '/production' },
-          { label: 'Terminal Receipts', href: '/terminal' },
-          { label: 'Reconciliation', href: '/reconciliation' },
-        ];
-      case 'jv_partner':
-        return [
-          ...baseItems,
-          { label: 'My Allocations', href: '/allocations' },
-          { label: 'Production Data', href: '/production' },
-        ];
-      case 'auditor':
-        return [
-          ...baseItems,
-          { label: 'Production Data', href: '/production' },
-          { label: 'Audit Logs', href: '/audit' },
-          { label: 'Data Integrity', href: '/integrity' },
-        ];
-      default:
-        return baseItems;
+const UserMenu: React.FC<UserMenuProps> = ({
+  userData,
+  showUserMenu,
+  setShowUserMenu,
+  onSignOut,
+  router,
+}) => (
+  <div className="relative">
+    <button
+      onClick={() => setShowUserMenu(!showUserMenu)}
+      className={`flex items-center space-x-3 cursor-pointer ${COLORS.background.glass} backdrop-blur-sm ${COLORS.border.light} border rounded-xl px-4 py-2 hover:${COLORS.background.glassHover} transition-all duration-300`}
+    >
+      <div
+        className={`w-8 h-8 rounded-lg bg-gradient-to-br ${COLORS.primary.blue[600]} ${COLORS.primary.purple[600]} flex items-center justify-center`}
+      >
+        <span className="text-sm font-medium text-white">
+          {userData?.email?.charAt(0).toUpperCase()}
+        </span>
+      </div>
+      <div className="hidden sm:block text-left">
+        <div className={`text-sm font-medium ${COLORS.text.primary}`}>
+          {userData?.email?.split("@")[0]}
+        </div>
+        <div className={`text-xs ${COLORS.text.muted} capitalize`}>
+          {userData?.role?.replace("_", " ")}
+        </div>
+      </div>
+      <ChevronDown
+        className={`w-4 h-4 cursor-pointer ${
+          COLORS.text.muted
+        } transition-transform duration-200 ${
+          showUserMenu ? "rotate-180" : ""
+        }`}
+      />
+    </button>
+
+    {showUserMenu && (
+      <>
+        {/* Backdrop */}
+        <div
+          className="fixed inset-0 z-40"
+          onClick={() => setShowUserMenu(false)}
+        ></div>
+
+        {/* Menu */}
+        <div
+          className={`absolute right-0 mt-2 w-64 bg-black backdrop-blur-xl ${COLORS.border.light} border rounded-2xl shadow-2xl z-50 overflow-hidden`}
+        >
+          {/* User Info Header */}
+          <div className="p-4 border-b border-white/10">
+            <div className="flex items-center space-x-3">
+              <div
+                className={`w-12 h-12 rounded-xl bg-gradient-to-br ${COLORS.primary.blue[600]} ${COLORS.primary.purple[600]} flex items-center justify-center`}
+              >
+                <span className="text-lg font-medium text-white">
+                  {userData?.email?.charAt(0).toUpperCase()}
+                </span>
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className={`font-medium ${COLORS.text.primary} truncate`}>
+                  {userData?.email}
+                </div>
+                <div className={`text-sm ${COLORS.text.muted} capitalize`}>
+                  {userData?.role?.replace("_", " ")}
+                </div>
+                <div className={`text-xs ${COLORS.text.muted} truncate`}>
+                  {userData?.company}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Menu Items */}
+          <div className="py-2">
+            {/* <button
+              onClick={() => {
+                setShowUserMenu(false);
+                router.push("/profile");
+              }}
+              className={`w-full flex items-center space-x-3 px-4 py-3 text-sm ${COLORS.text.primary} hover:${COLORS.background.glassHover} transition-colors`}
+            >
+              <User className="w-4 h-4" />
+              <span>Profile Settings</span>
+            </button>
+
+            <button
+              onClick={() => {
+                setShowUserMenu(false);
+                router.push("/settings");
+              }}
+              className={`w-full flex items-center space-x-3 px-4 py-3 text-sm ${COLORS.text.primary} hover:${COLORS.background.glassHover} transition-colors`}
+            >
+              <Settings className="w-4 h-4" />
+              <span>Preferences</span>
+            </button> */}
+
+
+            <button
+              onClick={onSignOut}
+              className="w-full flex items-center space-x-3 px-4 py-3 text-sm text-red-400 hover:bg-red-500/10 transition-colors"
+            >
+              <LogOut className="w-4 h-4" />
+              <span>Sign Out</span>
+            </button>
+          </div>
+        </div>
+      </>
+    )}
+  </div>
+);
+
+// Navigation Item Component
+interface NavItemProps {
+  item: NavigationItem;
+  onClick: () => void;
+}
+
+const NavItem: React.FC<NavItemProps> = ({ item, onClick }) => {
+  const IconComponent = item.icon;
+const path = usePathname()
+  return (
+    <button
+      onClick={onClick}
+      className={`flex items-center cursor-pointer space-x-2 px-4 py-2 rounded-xl text-sm font-medium transition-all duration-300 ${
+        path.includes(item.href)
+          ? `bg-white ${COLORS.primary.blue[600]} ${COLORS.primary.purple[600]} shadow-lg`
+          : `${COLORS.text.secondary} hover:${COLORS.text.primary} hover:${COLORS.background.glassHover}`
+      }`}
+    >
+      <IconComponent className="w-4 h-4" />
+      <span>{item.label}</span>
+    </button>
+  );
+};
+
+// Mobile Menu Component
+interface MobileMenuProps {
+  navigationItems: NavigationItem[];
+  router: any;
+  isOpen: boolean;
+  onClose: () => void;
+}
+
+const MobileMenu: React.FC<MobileMenuProps> = ({
+  navigationItems,
+  router,
+  isOpen,
+  onClose,
+}) => {
+  if (!isOpen) return null;
+
+  return (
+    <>
+      {/* Backdrop */}
+      <div
+        className="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm"
+        onClick={onClose}
+      ></div>
+
+      {/* Menu */}
+      <div
+        className={`fixed top-0 left-0 right-0 z-50 ${COLORS.background.card} backdrop-blur-xl ${COLORS.border.light} border-b`}
+      >
+        <div className="p-4 space-y-2">
+          {navigationItems.map((item) => (
+            <button
+              key={item.href}
+              onClick={() => {
+                router.push(item.href);
+                onClose();
+              }}
+              className={`w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-sm font-medium transition-all duration-300 ${
+                item.active
+                  ? `bg-gradient-to-r ${COLORS.primary.blue[600]} ${COLORS.primary.purple[600]} text-white`
+                  : `${COLORS.text.secondary} hover:${COLORS.background.glassHover}`
+              }`}
+            >
+              <item.icon className="w-5 h-5" />
+              <span>{item.label}</span>
+            </button>
+          ))}
+        </div>
+      </div>
+    </>
+  );
+};
+
+// Main Navigation Header Component
+const NavigationHeader: React.FC = () => {
+  const router = useRouter();
+  const pathname = usePathname();
+  const [showUserMenu, setShowUserMenu] = useState<boolean>(false);
+  const [showMobileMenu, setShowMobileMenu] = useState<boolean>(false);
+const { auth, data: userData, loading } = useUser();
+
+  const handleSignOut = async (): Promise<void> => {
+    try {
+      // Simulate sign out
+      localStorage.removeItem("user");
+      router.push("/onboarding/login");
+    } catch (error) {
+      console.error("Error signing out:", error);
     }
   };
 
@@ -64,102 +352,98 @@ export default function NavigationHeader() {
     return null;
   }
 
-  const navigationItems = getNavigationItems();
+  const navigationItems = getNavigationItems(userData as User, pathname);
 
   return (
-    <nav className="bg-white shadow-sm border-b border-gray-200">
+    <nav
+      className={`fixed top-0 left-0 right-0 z-30 ${COLORS.background.card} backdrop-blur-xl ${COLORS.border.light} border-b`}
+    >
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex justify-between h-16">
+        <div className="flex justify-between items-center h-16">
           {/* Logo and Navigation */}
-          <div className="flex">
-            <div className="flex-shrink-0 flex items-center">
-              <h1 className="text-xl font-bold text-blue-600">
-                OilGas Allocation
-              </h1>
-            </div>
-            <div className="hidden sm:ml-6 sm:flex sm:space-x-8">
+          <div className="flex items-center space-x-8">
+            <Logo />
+
+            {/* Desktop Navigation */}
+            <div className="hidden md:flex items-center space-x-2">
               {navigationItems.map((item) => (
-                <button
+                <NavItem
                   key={item.href}
+                  item={item}
                   onClick={() => router.push(item.href)}
-                  className="border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium transition"
-                >
-                  {item.label}
-                </button>
+                />
               ))}
             </div>
           </div>
 
-          {/* User Menu */}
-          <div className="flex items-center">
-            <div className="relative ml-3">
-              <button
-                onClick={() => setShowUserMenu(!showUserMenu)}
-                className="bg-white rounded-full flex text-sm focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-              >
-                <div className="h-8 w-8 rounded-full bg-blue-600 flex items-center justify-center">
-                  <span className="text-sm font-medium text-white">
-                    {userData?.email?.charAt(0).toUpperCase()}
-                  </span>
-                </div>
-              </button>
+          {/* Right Side */}
+          <div className="flex items-center space-x-4">
+            {/* Search (optional) */}
+            <button
+              className={`p-2 rounded-xl ${COLORS.background.glass} ${COLORS.border.light} border hover:${COLORS.background.glassHover} transition-colors hidden sm:block`}
+            >
+              <Search className={`w-4 h-4 ${COLORS.text.muted}`} />
+            </button>
 
-              {showUserMenu && (
-                <div className="origin-top-right absolute right-0 mt-2 w-48 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 z-50">
-                  <div className="py-1">
-                    <div className="px-4 py-2 text-sm text-gray-700 border-b border-gray-200">
-                      <div className="font-medium">{userData?.email}</div>
-                      <div className="text-xs text-gray-500 capitalize">
-                        {userData?.role?.replace('_', ' ')}
-                      </div>
-                      <div className="text-xs text-gray-500">{userData?.company}</div>
-                    </div>
-                    <button
-                      onClick={() => {
-                        setShowUserMenu(false);
-                        router.push('/profile');
-                      }}
-                      className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                    >
-                      Profile
-                    </button>
-                    <button
-                      onClick={() => {
-                        setShowUserMenu(false);
-                        router.push('/settings');
-                      }}
-                      className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                    >
-                      Settings
-                    </button>
-                    <button
-                      onClick={handleSignOut}
-                      className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                    >
-                      Sign out
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
+            {/* Notifications (optional) */}
+            <button
+              className={`p-2 rounded-xl ${COLORS.background.glass} ${COLORS.border.light} border hover:${COLORS.background.glassHover} transition-colors relative hidden sm:block`}
+            >
+              <Bell className={`w-4 h-4 ${COLORS.text.muted}`} />
+              <div className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full"></div>
+            </button>
+
+            {/* User Menu */}
+            <UserMenu
+              userData={userData as User}
+              showUserMenu={showUserMenu}
+              setShowUserMenu={setShowUserMenu}
+              onSignOut={handleSignOut}
+              router={router}
+            />
+
+            {/* Mobile Menu Button */}
+            <button
+              onClick={() => setShowMobileMenu(!showMobileMenu)}
+              className={`md:hidden p-2 rounded-xl ${COLORS.background.glass} ${COLORS.border.light} border hover:${COLORS.background.glassHover} transition-colors`}
+            >
+              <div className="w-4 h-4 flex flex-col justify-center space-y-1">
+                <div
+                  className={`h-0.5 ${
+                    COLORS.text.primary
+                  } transition-transform duration-200 ${
+                    showMobileMenu ? "rotate-45 translate-y-1" : ""
+                  }`}
+                ></div>
+                <div
+                  className={`h-0.5 ${
+                    COLORS.text.primary
+                  } transition-opacity duration-200 ${
+                    showMobileMenu ? "opacity-0" : ""
+                  }`}
+                ></div>
+                <div
+                  className={`h-0.5 ${
+                    COLORS.text.primary
+                  } transition-transform duration-200 ${
+                    showMobileMenu ? "-rotate-45 -translate-y-1" : ""
+                  }`}
+                ></div>
+              </div>
+            </button>
           </div>
         </div>
       </div>
 
-      {/* Mobile menu */}
-      <div className="sm:hidden">
-        <div className="pt-2 pb-3 space-y-1">
-          {navigationItems.map((item) => (
-            <button
-              key={item.href}
-              onClick={() => router.push(item.href)}
-              className="border-transparent text-gray-500 hover:bg-gray-50 hover:border-gray-300 hover:text-gray-700 block pl-3 pr-4 py-2 border-l-4 text-base font-medium w-full text-left"
-            >
-              {item.label}
-            </button>
-          ))}
-        </div>
-      </div>
+      {/* Mobile Menu */}
+      <MobileMenu
+        navigationItems={navigationItems}
+        router={router}
+        isOpen={showMobileMenu}
+        onClose={() => setShowMobileMenu(false)}
+      />
     </nav>
   );
-}
+};
+
+export default NavigationHeader;

@@ -4,7 +4,6 @@ import crypto from "crypto";
 import {
   AllocationInput,
   AllocationOutput,
-  ProductionEntry,
   TerminalReceipt,
   STANDARD_CONDITIONS,
   API_MPMS_CONSTANTS,

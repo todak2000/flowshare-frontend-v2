@@ -57,10 +57,10 @@ export default function AuditorDashboard() {
       return;
     }
 
-    if (userData?.role !== "auditor") {
-      router.push("/dashboard");
-      return;
-    }
+    // if (userData?.role !== "auditor") {
+    //   router.push("/dashboard");
+    //   return;
+    // }
 
     loadAuditData();
   }, [userLoading, auth, userData, router]);
@@ -125,7 +125,7 @@ export default function AuditorDashboard() {
     100;
 
   if (userLoading) {
-    return <LoadingSpinner fullScreen message="Loading user data..." />;
+    return <LoadingSpinner message="Loading user data..." />;
   }
 
   return (

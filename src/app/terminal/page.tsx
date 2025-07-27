@@ -7,8 +7,8 @@ import { firebaseService } from '../../../lib/firebase-service';
 import { TerminalReceipt, CreateTerminalReceiptData } from '../../../types';
 import LoadingSpinner from '../../../component/LoadingSpinner';
 import SummaryCard from '../../../component/SummaryCard';
-import Modal from '../../../component/Modal';
 import { formatDateForInput } from '../../../utils/date';
+import { Modal } from '../../../component/Modal';
 
 export default function TerminalReceiptPage() {
   const { auth, data: userData, loading: userLoading } = useUser();
@@ -30,10 +30,10 @@ export default function TerminalReceiptPage() {
       return;
     }
 
-    if (userData?.role !== 'jv_coordinator' && userData?.role !== 'admin') {
-      router.push('/dashboard');
-      return;
-    }
+    // if (userData?.role !== 'jv_coordinator' && userData?.role !== 'admin') {
+    //   router.push('/dashboard');
+    //   return;
+    // }
 
     loadTerminalReceipts();
   }, [userLoading, auth, userData, router]);
@@ -116,7 +116,7 @@ export default function TerminalReceiptPage() {
     : 0;
 
   if (userLoading) {
-    return <LoadingSpinner fullScreen message="Loading user data..." />;
+    return <LoadingSpinner  message="Loading user data..." />;
   }
 
   return (
