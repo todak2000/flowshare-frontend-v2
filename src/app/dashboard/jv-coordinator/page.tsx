@@ -178,7 +178,7 @@ const ActionCard: React.FC<ActionCardProps> = ({
       </div>
       <button
         onClick={onClick}
-        className={`w-full ${variants[variant]} text-white py-3 px-4 rounded-xl font-medium transition-all duration-300 transform hover:scale-[1.02]`}
+        className={`w-full cursor-pointer ${variants[variant]} text-white py-3 px-4 rounded-xl font-medium transition-all duration-300 transform hover:scale-[1.02]`}
       >
         {buttonText}
       </button>
@@ -413,7 +413,7 @@ const JVCoordinatorDashboard: React.FC = () => {
         return;
       }
 
-      const reconciliationId = await firebaseService.triggerReconciliation(
+      await firebaseService.triggerReconciliation(
         new Date(reconcileDateRange.startDate),
         new Date(reconcileDateRange.endDate),
         auth.uid
@@ -476,9 +476,7 @@ const JVCoordinatorDashboard: React.FC = () => {
               <Workflow className="w-8 h-8 text-white" />
             </div>
             <div>
-              <p
-                className={`${COLORS.text.secondary} flex flex-col`}
-              >
+              <p className={`${COLORS.text.secondary} flex flex-col`}>
                 <span>Welcome, {userData?.email}</span>
                 <span>Manage terminal receipts and reconciliations</span>
               </p>
@@ -493,28 +491,20 @@ const JVCoordinatorDashboard: React.FC = () => {
             value={todaysReceipts.length}
             color="blue"
             icon={Terminal}
-            trend={{ value: 15.2, isPositive: true }}
+            // trend={{ value: 15.2, isPositive: true }}
           />
           <SummaryCard
             title="This Week's Runs"
             value={thisWeekRuns.length}
             color="green"
             icon={RefreshCw}
-            trend={{ value: 8.7, isPositive: true }}
+            // trend={{ value: 8.7, isPositive: true }}
           />
           <SummaryCard
             title="Total Receipts"
             value={terminalReceipts.length}
             color="orange"
             icon={Database}
-          />
-          <SummaryCard
-            title="Avg Shrinkage"
-            value={averageShrinkage.toFixed(2)}
-            unit="%"
-            color="purple"
-            icon={TrendingUp}
-            trend={{ value: 1.2, isPositive: false }}
           />
         </div>
 
@@ -651,7 +641,7 @@ const JVCoordinatorDashboard: React.FC = () => {
       >
         <div className="space-y-6">
           <InputField
-            label="Date & Time"
+            label="Date & Time (Select the last day of the month e.g. 31 July 11:59pm)"
             type="datetime-local"
             value={terminalFormData.timestamp}
             onChange={(value) =>

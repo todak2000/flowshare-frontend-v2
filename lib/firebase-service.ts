@@ -16,6 +16,9 @@ import {
   writeBatch,
   onSnapshot,
   QueryConstraint,
+  startAfter,
+  getCountFromServer,
+  endBefore,
 } from "firebase/firestore";
 import {
   createUserWithEmailAndPassword,
@@ -301,72 +304,113 @@ export class FirebaseService {
     }
   }
 
-  async getProductionEntries(
-    partnerId?: string,
-    startDate?: Date,
-    endDate?: Date,
-    limitCount?: number
-  ): Promise<ProductionEntry[]> {
-    try {
-      const constraints: QueryConstraint[] = [];
+// Updated Firebase service method
+async getProductionEntries(
+  partnerId?: string,
+  startDate?: Date,
+  endDate?: Date,
+  limitPerPage: number = 10,
+  lastVisible?: Timestamp, // Firestore timestamp cursor
+  direction: 'next' | 'previous' = 'next' // Add direction parameter
+): Promise<{
+  data: ProductionEntry[];
+  lastVisible: Timestamp | null;
+  firstVisible: Timestamp | null; // Add firstVisible for previous page tracking
+  total: number;
+}> {
+  console.log(lastVisible, 'lastVisible')
+  try {
+    const constraints: QueryConstraint[] = [];
 
-      // Set default dates if not provided
-      let effectiveStartDate = startDate;
-      let effectiveEndDate = endDate;
+    let effectiveStartDate = startDate;
+    let effectiveEndDate = endDate;
 
-      if (!startDate || !endDate) {
-        const now = new Date();
-
-        if (!startDate) {
-          // First day of current month
-          effectiveStartDate = new Date(now.getFullYear(), now.getMonth(), 1);
-        }
-
-        if (!endDate) {
-          // Last day of current month
-          effectiveEndDate = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-        }
-      }
-
-      if (partnerId) {
-        constraints.push(where("partner", "==", partnerId));
-      }
-
-      if (effectiveStartDate) {
-        constraints.push(
-          where("timestamp", ">=", Timestamp.fromDate(effectiveStartDate))
-        );
-      }
-
-      if (effectiveEndDate) {
-        constraints.push(
-          where("timestamp", "<=", Timestamp.fromDate(effectiveEndDate))
-        );
-      }
-
-      constraints.push(orderBy("timestamp", "desc"));
-
-      if (limitCount) {
-        constraints.push(limit(limitCount));
-      }
-
-      const q = query(collection(db, "production_entries"), ...constraints);
-      const querySnapshot = await getDocs(q);
-
-      return querySnapshot.docs.map(
-        (doc) =>
-          ({
-            id: doc.id,
-            ...doc.data(),
-            timestamp: doc.data().timestamp.toDate(),
-            created_at: doc.data().created_at.toDate(),
-            updated_at: doc.data().updated_at.toDate(),
-          } as ProductionEntry)
-      );
-    } catch (error: any) {
-      this.handleFirebaseError(error, "Production Entries Retrieval");
+    if (!startDate || !endDate) {
+      const now = new Date();
+      if (!startDate)
+        effectiveStartDate = new Date(now.getFullYear(), now.getMonth(), 1);
+      if (!endDate)
+        effectiveEndDate = new Date(now.getFullYear(), now.getMonth() + 1, 0);
     }
+
+    if (partnerId) {
+      constraints.push(where("partner", "==", partnerId));
+    }
+
+    if (effectiveStartDate) {
+      constraints.push(
+        where("timestamp", ">=", Timestamp.fromDate(effectiveStartDate))
+      );
+    }
+
+    if (effectiveEndDate) {
+      constraints.push(
+        where("timestamp", "<=", Timestamp.fromDate(effectiveEndDate))
+      );
+    }
+
+    // For previous page, we need to reverse the order and use endBefore
+    const orderDirection = direction === 'previous' ? 'asc' : 'desc';
+    constraints.push(orderBy("timestamp", orderDirection));
+
+    // Get total count (without pagination)
+    const countQuery = query(collection(db, "production_entries"), ...constraints.slice(0, -1)); // Remove orderBy for count
+    const snapshot = await getCountFromServer(countQuery);
+    const total = snapshot.data().count;
+
+    // Add pagination constraints
+    if (lastVisible) {
+      if (direction === 'previous') {
+        constraints.push(endBefore(lastVisible));
+      } else {
+        constraints.push(startAfter(lastVisible));
+      }
+    }
+
+    constraints.push(limit(limitPerPage));
+
+    const q = query(collection(db, "production_entries"), ...constraints);
+    const querySnapshot = await getDocs(q);
+    
+    let data = querySnapshot.docs.map(
+      (doc) =>
+        ({
+          id: doc.id,
+          ...doc.data(),
+          timestamp: doc.data().timestamp.toDate(),
+          created_at: doc.data().created_at.toDate(),
+          updated_at: doc.data().updated_at.toDate(),
+        } as ProductionEntry)
+    );
+
+    // If we queried in reverse order for previous page, reverse the results back
+    if (direction === 'previous') {
+      data = data.reverse();
+    }
+
+    const lastVisibleTimestamp = querySnapshot.docs.length
+      ? direction === 'previous' 
+        ? (querySnapshot.docs[0].data() as any).timestamp  // First doc when reversed
+        : (querySnapshot.docs[querySnapshot.docs.length - 1].data() as any).timestamp
+      : null;
+
+    const firstVisibleTimestamp = querySnapshot.docs.length
+      ? direction === 'previous'
+        ? (querySnapshot.docs[querySnapshot.docs.length - 1].data() as any).timestamp // Last doc when reversed
+        : (querySnapshot.docs[0].data() as any).timestamp
+      : null;
+
+    return { 
+      data, 
+      lastVisible: lastVisibleTimestamp, 
+      firstVisible: firstVisibleTimestamp,
+      total 
+    };
+  } catch (error: any) {
+    this.handleFirebaseError(error, "Production Entries Retrieval");
+    return { data: [], lastVisible: null, firstVisible: null, total: 0 };
   }
+}
 
   async updateProductionEntry(
     id: string,
@@ -600,17 +644,6 @@ export class FirebaseService {
     }
   }
 
-  // Enhanced reconciliation with better error handling
-  // Enhanced reconciliation methods with correct back-allocation logic
-
-  // In firebase-service.ts - Replace the existing reconciliation methods
-
-  /**
-   * Enhanced reconciliation with correct back-allocation logic
-   * This allocates the actual terminal volume back to partners proportionally
-   */
-  // Updated triggerReconciliation method with date range support
-
   async triggerReconciliation(
     startDate: Date,
     endDate: Date,
@@ -664,7 +697,7 @@ export class FirebaseService {
         this.getTerminalReceipts(periodStartDate, periodEndDate),
       ]);
 
-      if (productionEntries.length === 0) {
+      if (productionEntries && productionEntries.data.length === 0) {
         throw new Error(
           `No production entries found for the period ${periodStartDate.toLocaleDateString()} to ${periodEndDate.toLocaleDateString()}`
         );
@@ -694,7 +727,7 @@ export class FirebaseService {
       >();
 
       // Calculate totals per partner for the entire period
-      productionEntries.forEach((entry) => {
+      productionEntries.data.forEach((entry) => {
         const partner = entry.partner;
         if (!partnerTotals.has(partner)) {
           partnerTotals.set(partner, {
@@ -825,7 +858,7 @@ export class FirebaseService {
           volume_loss: result.volume_loss,
           start_date: periodStartDate, // Add period info to allocations
           end_date: periodEndDate,
-          timestamp: now, // When allocation was calculated
+          timestamp: periodEndDate, // When allocation was calculated
           reconciliation_id: reconciliationId,
           created_at: now,
           hash: this.allocationEngine.generateHash(result),
@@ -863,7 +896,7 @@ export class FirebaseService {
           actual_terminal_volume: totalTerminalVolume,
           shrinkage_factor: shrinkageFactor,
           terminal_receipts_count: terminalReceipts.length,
-          production_entries_count: productionEntries.length,
+          production_entries_count: productionEntries.data.length,
         },
       });
 
@@ -936,11 +969,11 @@ export class FirebaseService {
       ]);
 
       const partnersInvolved = [
-        ...new Set(productionEntries.map((entry) => entry.partner)),
+        ...new Set(productionEntries.data.map((entry) => entry.partner)),
       ];
       const issues: string[] = [];
 
-      if (productionEntries.length === 0) {
+      if (productionEntries.data.length === 0) {
         issues.push("No production entries found for this period");
       }
 
@@ -955,7 +988,7 @@ export class FirebaseService {
       return {
         periodStart: periodStartDate,
         periodEnd: periodEndDate,
-        totalProductionEntries: productionEntries.length,
+        totalProductionEntries: productionEntries.data.length,
         totalTerminalReceipts: terminalReceipts.length,
         partnersInvolved,
         readyForReconciliation: issues.length === 0,
@@ -1019,7 +1052,7 @@ export class FirebaseService {
       // Calculate date range for the month
       const startDate = new Date(year, month - 1, 1); // month is 0-indexed
       const endDate = new Date(year, month, 0); // Last day of month
-
+      endDate.setHours(23, 59, 59, 999);
       // Get allocation results for this partner and period
       const constraints: QueryConstraint[] = [
         where("partner", "==", partnerId),
@@ -1062,7 +1095,7 @@ export class FirebaseService {
         0
       );
 
-      const totalProductionInput = productionEntries.reduce(
+      const totalProductionInput = productionEntries.data.reduce(
         (sum, entry) => sum + entry.gross_volume_bbl,
         0
       );
@@ -1075,7 +1108,7 @@ export class FirebaseService {
         totalVolumeLoss: Math.round(totalVolumeLoss * 100) / 100,
         allocationCount: allocations.length,
         allocations,
-        productionEntries,
+        productionEntries: productionEntries.data,
       };
     } catch (error: any) {
       this.handleFirebaseError(error, "Monthly Allocation Summary");

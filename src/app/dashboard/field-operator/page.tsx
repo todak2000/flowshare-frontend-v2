@@ -270,11 +270,12 @@ const FieldOperatorDashboard: React.FC = () => {
       const startOfDay = new Date(today.setHours(0, 0, 0, 0));
       const endOfDay = new Date(today.setHours(23, 59, 59, 999));
 
-      const data = await firebaseService.getProductionEntries(
-        userData?.company,
-        startOfDay,
-        endOfDay
-      );
+      const { data, lastVisible, firstVisible, total } =
+        await firebaseService.getProductionEntries(
+          userData?.company,
+          startOfDay,
+          endOfDay
+        );
       setProductionData(data);
     } catch (error) {
       console.error("Error loading production data:", error);
@@ -325,7 +326,7 @@ const FieldOperatorDashboard: React.FC = () => {
   };
 
   // Calculate statistics
-  const todaysTotal = productionData.reduce(
+  const todaysTotal = productionData?.reduce(
     (sum, entry) => sum + entry.gross_volume_bbl,
     0
   );
@@ -397,14 +398,14 @@ const FieldOperatorDashboard: React.FC = () => {
               unit=" BBL"
               color="blue"
               icon={BarChart3}
-              trend={{ value: 12.5, isPositive: true }}
+              // trend={{ value: 12.5, isPositive: true }}
             />
             <SummaryCard
               title="Entries Today"
               value={productionData.length}
               color="green"
               icon={Database}
-              trend={{ value: 8.2, isPositive: true }}
+              // trend={{ value: 8.2, isPositive: true }}
             />
             <SummaryCard
               title="Average BSW"
@@ -412,7 +413,7 @@ const FieldOperatorDashboard: React.FC = () => {
               unit="%"
               color="orange"
               icon={Droplets}
-              trend={{ value: 2.1, isPositive: false }}
+              // trend={{ value: 2.1, isPositive: false }}
             />
             <SummaryCard
               title="Avg Temperature"
@@ -487,7 +488,6 @@ const FieldOperatorDashboard: React.FC = () => {
                           {i}
                         </th>
                       ))}
-                      
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-white/10">

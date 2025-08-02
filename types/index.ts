@@ -13,6 +13,8 @@ export interface ProductionEntry {
   created_by: string;
   created_at: Date;
   updated_at: Date;
+  edited_by?: string;
+  isApproved?: boolean;
 }
 
 export interface TerminalReceipt {
@@ -28,21 +30,7 @@ export interface TerminalReceipt {
   updated_at: Date;
 }
 
-// types.ts - Update the AllocationResult interface
 
-// export interface AllocationResult {
-//   id: string;
-//   partner: string;
-//   input_volume: number;
-//   net_volume: number;
-//   allocated_volume: number;
-//   percentage: number;
-//   volume_loss: number; // New field for volume loss calculation
-//   timestamp: Timestamp;
-//   reconciliation_id: string;
-//   created_at: Timestamp;
-//   hash: string;
-// }
 
 // Add new interface for monthly summary
 export interface MonthlyAllocationSummary {
@@ -235,7 +223,7 @@ export interface HashedDocument {
 
 export type CreateProductionEntryData = Omit<
   ProductionEntry,
-  "id" | "hash" | "created_at" | "updated_at"
+  "id" | "hash" | "created_at" | "updated_at" | "isApproved" | "edited_by"
 >;
 export type CreateTerminalReceiptData = Omit<
   TerminalReceipt,

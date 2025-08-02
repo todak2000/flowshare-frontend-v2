@@ -15,6 +15,9 @@ import {
   Droplet,
   Bell,
   Search,
+  X,
+  Hamburger,
+  Menu,
 } from "lucide-react";
 import { Permission, UserRole } from "../types";
 import { COLORS } from "./Home";
@@ -36,9 +39,6 @@ interface NavigationItem {
   icon: React.ComponentType<{ className?: string }>;
   active: boolean;
 }
-
-
-
 
 // Navigation Items Configuration
 const getNavigationItems = (
@@ -107,6 +107,12 @@ const getNavigationItems = (
         href: "/production",
         icon: BarChart3,
         active: currentPath.includes("/production"),
+      },
+      {
+        label: "Reconciliation",
+        href: "/reconciliation",
+        icon: Shield,
+        active: currentPath.includes("/reconciliation"),
       },
     ],
     auditor: [
@@ -217,29 +223,6 @@ const UserMenu: React.FC<UserMenuProps> = ({
 
           {/* Menu Items */}
           <div className="py-2">
-            {/* <button
-              onClick={() => {
-                setShowUserMenu(false);
-                router.push("/profile");
-              }}
-              className={`w-full flex items-center space-x-3 px-4 py-3 text-sm ${COLORS.text.primary} hover:${COLORS.background.glassHover} transition-colors`}
-            >
-              <User className="w-4 h-4" />
-              <span>Profile Settings</span>
-            </button>
-
-            <button
-              onClick={() => {
-                setShowUserMenu(false);
-                router.push("/settings");
-              }}
-              className={`w-full flex items-center space-x-3 px-4 py-3 text-sm ${COLORS.text.primary} hover:${COLORS.background.glassHover} transition-colors`}
-            >
-              <Settings className="w-4 h-4" />
-              <span>Preferences</span>
-            </button> */}
-
-
             <button
               onClick={onSignOut}
               className="w-full flex items-center space-x-3 px-4 py-3 text-sm text-red-400 hover:bg-red-500/10 transition-colors"
@@ -262,7 +245,7 @@ interface NavItemProps {
 
 const NavItem: React.FC<NavItemProps> = ({ item, onClick }) => {
   const IconComponent = item.icon;
-const path = usePathname()
+  const path = usePathname();
   return (
     <button
       onClick={onClick}
@@ -304,9 +287,17 @@ const MobileMenu: React.FC<MobileMenuProps> = ({
 
       {/* Menu */}
       <div
-        className={`fixed top-0 left-0 right-0 z-50 ${COLORS.background.card} backdrop-blur-xl ${COLORS.border.light} border-b`}
+        className={`fixed top-0 left-0 right-0 z-50 bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 backdrop-blur-xl ${COLORS.border.light} border-b`}
       >
         <div className="p-4 space-y-2">
+          <button
+            onClick={() => {
+              onClose();
+            }}
+            className={`w-full flex items-center justify-end px-4 py-3 rounded-xl text-sm font-medium transition-all duration-300 ${`${COLORS.text.secondary} hover:${COLORS.background.glassHover}`}`}
+          >
+            <X className="w-5 h-5" />
+          </button>
           {navigationItems.map((item) => (
             <button
               key={item.href}
@@ -336,7 +327,7 @@ const NavigationHeader: React.FC = () => {
   const pathname = usePathname();
   const [showUserMenu, setShowUserMenu] = useState<boolean>(false);
   const [showMobileMenu, setShowMobileMenu] = useState<boolean>(false);
-const { auth, data: userData, loading } = useUser();
+  const { auth, data: userData, loading } = useUser();
 
   const handleSignOut = async (): Promise<void> => {
     try {
@@ -378,21 +369,6 @@ const { auth, data: userData, loading } = useUser();
 
           {/* Right Side */}
           <div className="flex items-center space-x-4">
-            {/* Search (optional) */}
-            <button
-              className={`p-2 rounded-xl ${COLORS.background.glass} ${COLORS.border.light} border hover:${COLORS.background.glassHover} transition-colors hidden sm:block`}
-            >
-              <Search className={`w-4 h-4 ${COLORS.text.muted}`} />
-            </button>
-
-            {/* Notifications (optional) */}
-            <button
-              className={`p-2 rounded-xl ${COLORS.background.glass} ${COLORS.border.light} border hover:${COLORS.background.glassHover} transition-colors relative hidden sm:block`}
-            >
-              <Bell className={`w-4 h-4 ${COLORS.text.muted}`} />
-              <div className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full"></div>
-            </button>
-
             {/* User Menu */}
             <UserMenu
               userData={userData as User}
@@ -405,32 +381,11 @@ const { auth, data: userData, loading } = useUser();
             {/* Mobile Menu Button */}
             <button
               onClick={() => setShowMobileMenu(!showMobileMenu)}
-              className={`md:hidden p-2 rounded-xl ${COLORS.background.glass} ${COLORS.border.light} border hover:${COLORS.background.glassHover} transition-colors`}
+              className="md:hidden w-6 h-6 flex flex-col justify-center"
             >
-              <div className="w-4 h-4 flex flex-col justify-center space-y-1">
-                <div
-                  className={`h-0.5 ${
-                    COLORS.text.primary
-                  } transition-transform duration-200 ${
-                    showMobileMenu ? "rotate-45 translate-y-1" : ""
-                  }`}
-                ></div>
-                <div
-                  className={`h-0.5 ${
-                    COLORS.text.primary
-                  } transition-opacity duration-200 ${
-                    showMobileMenu ? "opacity-0" : ""
-                  }`}
-                ></div>
-                <div
-                  className={`h-0.5 ${
-                    COLORS.text.primary
-                  } transition-transform duration-200 ${
-                    showMobileMenu ? "-rotate-45 -translate-y-1" : ""
-                  }`}
-                ></div>
-              </div>
+              <Menu className="text-white" />
             </button>
+            
           </div>
         </div>
       </div>

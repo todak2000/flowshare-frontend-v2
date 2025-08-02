@@ -12,7 +12,9 @@
   --font-mono: var(--font-geist-mono);
 }
 
-
+button {
+  cursor: pointer;
+}
 
 body {
   background: var(--background);

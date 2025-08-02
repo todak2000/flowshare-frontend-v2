@@ -520,12 +520,8 @@ const ReconciliationPage: React.FC = () => {
             >
               <Calculator className="w-8 h-8 text-white" />
             </div>
-            <div>
-              <h1
-                className={`text-3xl font-bold ${COLORS.text.primary} font-display`}
-              >
-                Reconciliation Management
-              </h1>
+            <div className="w-[60%] md:w-auto">
+             
               <p className={`${COLORS.text.secondary}`}>
                 Trigger period-based reconciliations and manage partner
                 back-allocations
@@ -541,14 +537,14 @@ const ReconciliationPage: React.FC = () => {
             value={reconciliationRuns.length}
             color="blue"
             icon={Database}
-            trend={{ value: 15.2, isPositive: true }}
+            // trend={{ value: 15.2, isPositive: true }}
           />
           <SummaryCard
             title="Completed"
             value={completedRuns}
             color="green"
             icon={CheckCircle}
-            trend={{ value: 8.7, isPositive: true }}
+            // trend={{ value: 8.7, isPositive: true }}
           />
           <SummaryCard
             title="Total Volume"
@@ -557,17 +553,11 @@ const ReconciliationPage: React.FC = () => {
             color="orange"
             icon={BarChart3}
           />
-          <SummaryCard
-            title="Avg Shrinkage"
-            value={averageShrinkage.toFixed(2)}
-            unit="%"
-            color="red"
-            icon={TrendingDown}
-            trend={{ value: 1.2, isPositive: false }}
-          />
+         
         </div>
 
         {/* Action Bar */}
+        {userData?.role ==='jv_coordinator' ?
         <div
           className={`${COLORS.background.card} backdrop-blur-xl ${COLORS.border.light} border rounded-2xl p-6 mb-8`}
         >
@@ -596,6 +586,7 @@ const ReconciliationPage: React.FC = () => {
             </button>
           </div>
         </div>
+        : ''}
 
         {/* Reconciliation Runs Table */}
         <div
@@ -657,7 +648,7 @@ const ReconciliationPage: React.FC = () => {
                     <th
                       className={`px-6 py-4 text-left text-xs font-medium ${COLORS.text.muted} uppercase tracking-wider`}
                     >
-                      Volume Loss
+                      Volume Loss/Gain
                     </th>
                     <th
                       className={`px-6 py-4 text-left text-xs font-medium ${COLORS.text.muted} uppercase tracking-wider`}
@@ -684,7 +675,7 @@ const ReconciliationPage: React.FC = () => {
                 <tbody className="divide-y divide-white/10">
                   {reconciliationRuns.map((run) => {
                     const volumeLoss =
-                      run.total_input_volume - run.total_terminal_volume;
+                      -(run.total_input_volume - run.total_terminal_volume);
                     return (
                       <tr
                         key={run.id}
@@ -713,7 +704,7 @@ const ReconciliationPage: React.FC = () => {
                           {run.total_terminal_volume.toLocaleString()} BBL
                         </td>
                         <td
-                          className={`px-6 py-4 whitespace-nowrap text-sm font-medium text-red-400`}
+                          className={`px-6 py-4 whitespace-nowrap text-sm font-medium ${volumeLoss <0 ?'text-red-400':'text-green-400'}`}
                         >
                           {volumeLoss.toLocaleString()} BBL
                         </td>
@@ -729,7 +720,7 @@ const ReconciliationPage: React.FC = () => {
                                 : "bg-red-500/20 text-red-400"
                             }`}
                           >
-                            {run.shrinkage_factor.toFixed(2)}%
+                            {(-run.shrinkage_factor).toFixed(2)}%
                           </span>
                         </td>
                         <td
@@ -769,7 +760,7 @@ const ReconciliationPage: React.FC = () => {
                         <td className="px-6 py-4 whitespace-nowrap text-sm">
                           <button
                             onClick={() => handleViewReport(run)}
-                            className="flex items-center space-x-1 px-3 py-1 rounded-lg hover:bg-blue-500/20 text-blue-400 transition-colors"
+                            className="flex cursor-pointer items-center space-x-1 px-3 py-1 rounded-lg hover:bg-blue-500/20 text-blue-400 transition-colors"
                           >
                             <Eye className="w-4 h-4" />
                             <span>View Report</span>
@@ -945,7 +936,7 @@ const ReconciliationPage: React.FC = () => {
                 <Calendar className="w-4 h-4" />
                 <span>Reconciliation Period</span>
               </h4>
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
                 <div className="flex justify-between">
                   <span className={COLORS.text.muted}>Period:</span>
                   <span className={`${COLORS.text.primary} font-medium`}>
@@ -977,7 +968,7 @@ const ReconciliationPage: React.FC = () => {
                 <BarChart3 className="w-4 h-4" />
                 <span>Volume Summary</span>
               </h4>
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
                 <div className="flex justify-between">
                   <span className={COLORS.text.muted}>Total Partners:</span>
                   <span className={`${COLORS.text.primary} font-medium`}>
@@ -999,16 +990,16 @@ const ReconciliationPage: React.FC = () => {
                   </span>
                 </div>
                 <div className="flex justify-between">
-                  <span className={COLORS.text.muted}>Volume Loss:</span>
-                  <span className="text-red-400 font-medium">
-                    {selectedReport.summary.totalVolumeLoss.toLocaleString()}{" "}
+                  <span className={COLORS.text.muted}>Volume Loss/Gain:</span>
+                  <span className={`${(-selectedReport.summary.totalVolumeLoss) < 0 ? "text-red-400":"text-green-400"} font-medium`}>
+                    {(-selectedReport.summary.totalVolumeLoss).toLocaleString()}{" "}
                     BBL
                   </span>
                 </div>
                 <div className="flex justify-between">
                   <span className={COLORS.text.muted}>Shrinkage:</span>
-                  <span className={`text-orange-400 font-medium`}>
-                    {selectedReport.summary.shrinkagePercentage.toFixed(2)}%
+                  <span className={`${(-selectedReport.summary.shrinkagePercentage) < 0 ? "text-orange-400":"text-green-400"}  font-medium`}>
+                    {(-selectedReport.summary.shrinkagePercentage).toFixed(2)}%
                   </span>
                 </div>
                 <div className="flex justify-between">
@@ -1124,13 +1115,14 @@ const ReconciliationPage: React.FC = () => {
             </div>
 
             <div className="flex gap-3 pt-4">
+              {userData?.role ==='admin' ?
               <button
                 onClick={() => exportReport(selectedReport)}
-                className="flex items-center space-x-2 bg-gradient-to-r from-green-600 to-emerald-600 text-white py-3 px-4 rounded-xl font-medium hover:from-green-700 hover:to-emerald-700 transition-all duration-300"
+                className="flex cursor-pointer items-center space-x-2 bg-gradient-to-r from-green-600 to-emerald-600 text-white py-3 px-4 rounded-xl font-medium hover:from-green-700 hover:to-emerald-700 transition-all duration-300"
               >
                 <Download className="w-4 h-4" />
                 <span>Export Report</span>
-              </button>
+              </button>:''}
               <button
                 onClick={() => setShowReportModal(false)}
                 className={`${COLORS.background.glass} ${COLORS.text.primary} py-3 px-4 rounded-xl font-medium hover:${COLORS.background.glassHover} transition-all duration-300 ${COLORS.border.light} border`}

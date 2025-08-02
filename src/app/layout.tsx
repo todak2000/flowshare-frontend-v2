@@ -2,6 +2,7 @@
 import { usePathname } from "next/navigation";
 import NavigationHeader from "../../component/NavigationHeader";
 import "./globals.css";
+import { COLORS } from "../../component/Home";
 
 export default function RootLayout({
   children,
@@ -16,7 +17,7 @@ export default function RootLayout({
     <html lang="en">
       <body className={` antialiased`}>
         {!hideNavigation && <NavigationHeader />}
-        <main className={hideNavigation ? "" : "pt-0"}>{children}</main>
+        <main className={`${hideNavigation ? "" : "pt-0"} ${COLORS.background.gradient} min-h-screen h-screen`}>{children}</main>
       </body>
     </html>
   );
