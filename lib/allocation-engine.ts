@@ -6,29 +6,12 @@ import {
   AllocationOutput,
   TerminalReceipt,
   STANDARD_CONDITIONS,
-  API_MPMS_CONSTANTS,
-  AllocationInputPressure,
 } from "../types";
 
 export class AllocationEngine {
   /**
    * Calculate temperature correction factor using API MPMS Chapter 12.3
    */
-  private calculateTemperatureCorrectionPressure(
-    observedTemp: number,
-    standardTemp: number = STANDARD_CONDITIONS.TEMPERATURE_DEGF
-  ): number {
-    const tempDifference = observedTemp - standardTemp;
-    const { ALPHA_COEFFICIENT, BETA_COEFFICIENT } = API_MPMS_CONSTANTS;
-
-    // VCF = 1 - α(T - Tₛ) - β(T - Tₛ)²
-    const correction =
-      1 -
-      ALPHA_COEFFICIENT * tempDifference -
-      BETA_COEFFICIENT * Math.pow(tempDifference, 2);
-
-    return Math.max(0.95, Math.min(1.05, correction)); // Clamp between 0.95 and 1.05
-  }
 
   private getTemperatureCorrectionCoefficients(apiGravity: number): {
     alpha: number;
@@ -92,27 +75,6 @@ export class AllocationEngine {
     return Math.max(0.95, Math.min(1.05, correction));
   }
 
-  /**
-   * Calculate pressure correction factor
-   */
-  private calculatePressureCorrection(
-    observedPressure: number,
-    standardPressure: number = STANDARD_CONDITIONS.PRESSURE_PSI
-  ): number {
-    // Simplified pressure correction for liquid hydrocarbons
-    // CPL = 1 + (P - Pₛ) × F
-    const pressureFactor = 0.000001; // Typical factor for crude oil
-    const correction =
-      1 + (observedPressure - standardPressure) * pressureFactor;
-
-    return Math.max(0.998, Math.min(1.002, correction));
-  }
-
-  /**
-   * Calculate net volume after BS&W and temperature/pressure corrections
-   */
-  // (entry: AllocationInput): number {
-
   public calculateNetVolume(
     entry: AllocationInput,
     terminalGravity: number
@@ -142,24 +104,6 @@ export class AllocationEngine {
 
     // return Math.round(netVolume * 100) / 100; // Round to 2 decimal places
     return Math.round(netVolumeWithCorrection * 100) / 100;
-  }
-  private calculateNetVolumePressure(entry: AllocationInputPressure): number {
-    const { gross_volume_bbl, bsw_percent, temperature_degF, pressure_psi } =
-      entry;
-
-    // Remove BS&W (Basic Sediment and Water)
-    const volumeAfterBSW = gross_volume_bbl * (1 - bsw_percent / 100);
-
-    // Apply temperature correction
-    const tempCorrection =
-      this.calculateTemperatureCorrectionPressure(temperature_degF);
-    const volumeAfterTemp = volumeAfterBSW * tempCorrection;
-
-    // Apply pressure correction
-    const pressureCorrection = this.calculatePressureCorrection(pressure_psi);
-    const netVolume = volumeAfterTemp * pressureCorrection;
-
-    return Math.round(netVolume * 100) / 100; // Round to 2 decimal places
   }
 
   /**
@@ -306,7 +250,7 @@ export class AllocationEngine {
 
       if (entry.api_gravity < 10 || entry.api_gravity > 36) {
         errors.push(
-          `Entry ${index + 1}: Pressure must be between 10 and 36°API `
+          `Entry ${index + 1}: API Gravity be between 10 and 36°API `
         );
       }
     });
@@ -335,7 +279,7 @@ export class AllocationEngine {
       partner_allocations: allocation.allocation_results,
       calculations: {
         temperature_correction_applied: true,
-        pressure_correction_applied: true,
+        api_gravity_correction_applied: true,
         bsw_correction_applied: true,
         allocation_method: "proportional_by_net_volume",
       },
