@@ -1,7 +1,13 @@
 import { Droplet } from "lucide-react";
+import { useRouter } from "next/navigation";
 
-export const Logo = () => (
-    <div className="flex items-center space-x-2">
+export const Logo = () => {
+  const router = useRouter();
+  return (
+    <div
+      onClick={() => router.push("/")}
+      className="flex cursor-pointer items-center space-x-2"
+    >
       <div className="relative">
         <div className="w-10 h-10 bg-gradient-to-br from-blue-500 via-purple-600 to-cyan-500 rounded-lg flex items-center justify-center">
           <Droplet className="w-6 h-6 text-white" />
@@ -13,3 +19,4 @@ export const Logo = () => (
       </span>
     </div>
   );
+};
