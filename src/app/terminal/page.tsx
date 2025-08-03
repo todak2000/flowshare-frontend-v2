@@ -30,11 +30,6 @@ export default function TerminalReceiptPage() {
       return;
     }
 
-    // if (userData?.role !== 'jv_coordinator' && userData?.role !== 'admin') {
-    //   router.push('/dashboard');
-    //   return;
-    // }
-
     loadTerminalReceipts();
   }, [userLoading, auth, userData, router]);
 
