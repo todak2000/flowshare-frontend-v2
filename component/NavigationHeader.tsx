@@ -23,6 +23,7 @@ import { Permission, UserRole } from "../types";
 import { COLORS } from "./Home";
 import { useUser } from "../hook/useUser";
 import { Logo } from "./Logo";
+import { firebaseService } from "../lib/firebase-service";
 
 // TypeScript Interfaces
 interface User {
@@ -332,6 +333,7 @@ const NavigationHeader: React.FC = () => {
   const handleSignOut = async (): Promise<void> => {
     try {
       // Simulate sign out
+      await firebaseService.signOut()
       localStorage.removeItem("user");
       router.push("/onboarding/login");
     } catch (error) {
