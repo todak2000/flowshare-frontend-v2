@@ -50,6 +50,7 @@ interface CreateTerminalReceiptData {
   initial_volume_bbl: number;
   final_volume_bbl: number;
   temperature_degF: number;
+  api_gravity: number;
   timestamp: Date;
   created_by: string;
 }
@@ -58,6 +59,7 @@ interface TerminalFormData {
   initial_volume_bbl: string;
   final_volume_bbl: string;
   temperature_degF: string;
+  api_gravity: string;
   timestamp: string;
 }
 
@@ -330,6 +332,7 @@ const JVCoordinatorDashboard: React.FC = () => {
     initial_volume_bbl: "",
     final_volume_bbl: "",
     temperature_degF: "",
+    api_gravity: "",
     timestamp: formatDateForInput(new Date()),
   });
 
@@ -379,6 +382,7 @@ const JVCoordinatorDashboard: React.FC = () => {
         initial_volume_bbl: parseFloat(terminalFormData.initial_volume_bbl),
         final_volume_bbl: parseFloat(terminalFormData.final_volume_bbl),
         temperature_degF: parseFloat(terminalFormData.temperature_degF),
+        api_gravity: parseFloat(terminalFormData.api_gravity),
         timestamp: new Date(terminalFormData.timestamp),
         created_by: auth.uid,
       };
@@ -388,13 +392,18 @@ const JVCoordinatorDashboard: React.FC = () => {
       setTerminalFormData({
         initial_volume_bbl: "",
         final_volume_bbl: "",
+        api_gravity: "",
         temperature_degF: "",
         timestamp: formatDateForInput(new Date()),
       });
       await loadDashboardData();
-    } catch (error) {
-      console.error("Error saving terminal receipt:", error);
-      alert("Error saving terminal receipt. Please try again.");
+    } catch (error: any) {
+      console.error("Error saving terminal receipt:", error.message);
+      alert(
+        ` ${
+          error.message ?? "Error saving terminal receipt. Please try again."
+        } `
+      );
     } finally {
       setLoading(false);
     }
@@ -520,10 +529,11 @@ const JVCoordinatorDashboard: React.FC = () => {
           />
           <ActionCard
             title="Trigger Reconciliation"
-            description="Run daily reconciliation to calculate partner allocations. Ensure production entries and terminal receipts exist for the selected period."
+            description="Run monthly reconciliation to calculate partner allocations. Ensure production entries and terminal receipts exist for the selected period."
             buttonText="Run Reconciliation"
             icon={Calculator}
-            onClick={() => setShowReconcileForm(true)}
+            // onClick={() => setShowReconcileForm(true)}
+            onClick={() => router.push("/reconciliation")}
             variant="secondary"
           />
         </div>
@@ -534,7 +544,7 @@ const JVCoordinatorDashboard: React.FC = () => {
           <DataTable
             title="Recent Terminal Receipts"
             icon={Terminal}
-            data={terminalReceipts}
+            data={terminalReceipts?.slice(0,5)}
             columns={["Date", "Final Volume", "Temperature", "Status"]}
             loading={loading}
             emptyMessage="No terminal receipts recorded yet."
@@ -579,7 +589,7 @@ const JVCoordinatorDashboard: React.FC = () => {
           <DataTable
             title="Recent Reconciliation Runs"
             icon={RefreshCw}
-            data={reconciliationRuns}
+            data={reconciliationRuns.slice(0,5)}
             columns={["Date", "Terminal Volume", "Shrinkage", "Status"]}
             loading={loading}
             emptyMessage="No reconciliation runs yet."
@@ -682,7 +692,21 @@ const JVCoordinatorDashboard: React.FC = () => {
             icon={Target}
             disabled={loading}
           />
-
+          <InputField
+            label="Final API Gravity (°API)"
+            type="number"
+            step="0.1"
+            value={terminalFormData.api_gravity}
+            onChange={(value) =>
+              setTerminalFormData((prev) => ({
+                ...prev,
+                api_gravity: value,
+              }))
+            }
+            placeholder="Enter API Gravity"
+            icon={Thermometer}
+            disabled={loading}
+          />
           <InputField
             label="Temperature (°F)"
             type="number"
@@ -762,7 +786,8 @@ const JVCoordinatorDashboard: React.FC = () => {
                 loading ||
                 !terminalFormData.initial_volume_bbl ||
                 !terminalFormData.final_volume_bbl ||
-                !terminalFormData.temperature_degF
+                !terminalFormData.temperature_degF ||
+                !terminalFormData.api_gravity
               }
               className={`flex-1 bg-gradient-to-r ${COLORS.primary.blue[600]} ${COLORS.primary.purple[600]} text-white py-3 px-4 rounded-xl font-medium hover:${COLORS.primary.blue[700]} hover:${COLORS.primary.purple[700]} transition-all duration-300 disabled:opacity-50 flex items-center justify-center space-x-2`}
             >

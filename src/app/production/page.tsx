@@ -1,8 +1,8 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import {
-  Download,
   Calendar,
   BarChart3,
   TrendingUp,
@@ -16,6 +16,8 @@ import {
   Database,
   CircleQuestionMark,
   Trash2,
+  ChevronRight,
+  ChevronLeft,
 } from "lucide-react";
 import { ProductionFormData } from "../../../component/formField";
 import { ProductionEntry, UserRole } from "../../../types";
@@ -27,7 +29,9 @@ import { Modal } from "../../../component/Modal";
 import { ProductionChart } from "../../../component/ProductionChart";
 import { PartnerPieChart } from "../../../component/PartnerPieChart";
 import LoadingSpinner from "../../../component/LoadingSpinner";
-import { Timestamp } from "firebase/firestore";
+import { formatVolume } from "../../../utils/formatVolume";
+import { formatWithOrdinal } from "../../../utils/timestampToPeriod";
+import { formatNumber } from "../../../utils/formatNumber";
 
 interface Filters {
   partner: string;
@@ -71,11 +75,11 @@ const FORM_FIELDS: FormFieldConfig[] = [
     icon: Thermometer,
   },
   {
-    id: "pressure",
-    key: "pressure_psi",
-    label: "Pressure",
-    unit: "PSI",
-    placeholder: "Enter pressure in PSI",
+    id: "api_gravity",
+    key: "api_gravity",
+    label: "Crude API Gravity",
+    unit: "°API",
+    placeholder: "Enter gravity value in °API",
     icon: Gauge,
   },
   {
@@ -109,7 +113,7 @@ const downloadCSV = (data: ProductionEntry[]): void => {
       "Volume (BBL)",
       "BSW (%)",
       "Temperature (°F)",
-      "Pressure (PSI)",
+      "API Gravity (°API)",
     ].join(","),
     ...data.map((entry) =>
       [
@@ -118,7 +122,7 @@ const downloadCSV = (data: ProductionEntry[]): void => {
         entry.gross_volume_bbl,
         entry.bsw_percent,
         entry.temperature_degF,
-        entry.pressure_psi,
+        entry.api_gravity,
       ].join(",")
     ),
   ].join("\n");
@@ -204,11 +208,29 @@ const SummaryCard: React.FC<SummaryCardProps> = ({
 interface TabNavigationProps {
   activeTab: TabType;
   onTabChange: (tab: TabType) => void;
+  handleMonthChange: (i: "prev" | "next") => void;
+  selectedMonth: {
+    year: number;
+    month: number;
+  };
+  paginationInfo?: Record<string, number | string | undefined | boolean>;
+  isCurrentOrFutureMonth: boolean;
+  entriesCount: {
+    filtered: number;
+    total: number;
+  };
+  role: UserRole;
 }
 
 const TabNavigation: React.FC<TabNavigationProps> = ({
   activeTab,
   onTabChange,
+  handleMonthChange,
+  selectedMonth,
+  paginationInfo,
+  isCurrentOrFutureMonth,
+  entriesCount,
+  role,
 }) => {
   const tabs: {
     id: TabType;
@@ -217,112 +239,103 @@ const TabNavigation: React.FC<TabNavigationProps> = ({
   }[] = [
     { id: "data", label: "Data Table", icon: Table },
     { id: "dashboard", label: "Analytics", icon: Activity },
-    // { id: "analytics", label: "Analytics", icon: PieChart },
   ];
 
   return (
     <div className="p-6 border-b border-white/10">
-      <div className="flex space-x-1">
-        {tabs.map((tab) => {
-          const IconComponent = tab.icon;
-          return (
-            <button
-              key={tab.id}
-              onClick={() => onTabChange(tab.id)}
-              className={`flex cursor-pointer items-center space-x-2 px-4 py-2 rounded-xl text-sm font-medium transition-all duration-300 ${
-                activeTab === tab.id
-                  ? `bg-gradient-to-r ${COLORS.primary.blue[600]} ${COLORS.primary.purple[600]} text-white shadow-lg`
-                  : `${COLORS.text.secondary} hover:${COLORS.text.primary} hover:${COLORS.background.glassHover}`
-              }`}
+      <div className="flex space-x-1 justify-between items-center">
+        <div className="flex space-x-1">
+          {tabs.map((tab) => {
+            const IconComponent = tab.icon;
+            return (
+              <button
+                key={tab.id}
+                onClick={() => onTabChange(tab.id)}
+                className={`flex cursor-pointer items-center space-x-2 px-4 py-2 rounded-xl text-sm font-medium transition-all duration-300 ${
+                  activeTab === tab.id
+                    ? `bg-gradient-to-r ${COLORS.primary.blue[600]} ${COLORS.primary.purple[600]} text-white shadow-lg`
+                    : `${COLORS.text.secondary} hover:${COLORS.text.primary} hover:${COLORS.background.glassHover}`
+                }`}
+              >
+                <IconComponent className="w-4 h-4" />
+                <span>{tab.label}</span>
+              </button>
+            );
+          })}
+        </div>
+        <div className="flex items-center md:space-x-4">
+          <button
+            onClick={() => handleMonthChange("prev")}
+            className={`p-2 rounded-xl ${COLORS.background.glass} hover:${COLORS.background.glassHover} transition-colors ${COLORS.border.light} border`}
+          >
+            <ChevronLeft className={`w-5 h-5 ${COLORS.text.primary}`} />
+          </button>
+          <div className="flex items-center space-x-2">
+            <Calendar className={`w-6 h-6 ${COLORS.primary.blue[400]}`} />
+            <span
+              className={`text-lg font-medium ${COLORS.text.primary} text-center`}
             >
-              <IconComponent className="w-4 h-4" />
-              <span>{tab.label}</span>
-            </button>
-          );
-        })}
+              {new Date(
+                selectedMonth.year,
+                selectedMonth.month - 1
+              ).toLocaleDateString("en-US", {
+                year: "numeric",
+                month: "long",
+              })}
+            </span>
+          </div>
+
+          <button
+            onClick={() => handleMonthChange("next")}
+            disabled={isCurrentOrFutureMonth}
+            className={`p-2 rounded-xl ${COLORS.background.glass} hover:${COLORS.background.glassHover} transition-colors ${COLORS.border.light} border disabled:opacity-50 disabled:cursor-not-allowed`}
+          >
+            <ChevronRight className={`w-5 h-5 ${COLORS.text.primary}`} />
+          </button>
+        </div>
+        <ActionButtons
+          entriesCount={entriesCount}
+          paginationInfo={paginationInfo}
+          role={role}
+        />
       </div>
     </div>
   );
 };
-
-interface DateFiltersProps {
-  filters: Filters;
-  onFiltersChange: (filters: Filters) => void;
-}
-
-const DateFilters: React.FC<DateFiltersProps> = ({
-  filters,
-  onFiltersChange,
-}) => {
-  return (
-    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-      <div className="space-y-2">
-        <label className={`block text-sm font-medium ${COLORS.text.primary}`}>
-          Start Date
-        </label>
-        <div className="relative">
-          <Calendar
-            className={`absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 ${COLORS.text.muted}`}
-          />
-          <input
-            type="date"
-            value={filters.startDate}
-            onChange={(e) =>
-              onFiltersChange({ ...filters, startDate: e.target.value })
-            }
-            className={`w-full pl-10 pr-4 py-3 ${COLORS.background.glass} backdrop-blur-sm ${COLORS.border.light} border rounded-xl ${COLORS.text.primary} focus:outline-none focus:ring-2 focus:${COLORS.border.ring} focus:border-transparent transition-all duration-300`}
-          />
-        </div>
-      </div>
-
-      <div className="space-y-2">
-        <label className={`block text-sm font-medium ${COLORS.text.primary}`}>
-          End Date
-        </label>
-        <div className="relative">
-          <Calendar
-            className={`absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 ${COLORS.text.muted}`}
-          />
-          <input
-            type="date"
-            value={filters.endDate}
-            onChange={(e) =>
-              onFiltersChange({ ...filters, endDate: e.target.value })
-            }
-            className={`w-full pl-10 pr-4 py-3 ${COLORS.background.glass} backdrop-blur-sm ${COLORS.border.light} border rounded-xl ${COLORS.text.primary} focus:outline-none focus:ring-2 focus:${COLORS.border.ring} focus:border-transparent transition-all duration-300`}
-          />
-        </div>
-      </div>
-    </div>
-  );
-};
-
 interface ActionButtonsProps {
-  role: string;
-  onAddEntry: () => void;
-  onDownloadReport: () => void;
   entriesCount: { filtered: number; total: number };
+  paginationInfo:
+    | Record<string, string | number | boolean | undefined>
+    | undefined;
+  role: string;
 }
 
 const ActionButtons: React.FC<ActionButtonsProps> = ({
-  role,
-  onAddEntry,
-  onDownloadReport,
   entriesCount,
+  paginationInfo,
+  role,
 }) => {
-  const canCreate = ["field_operator", "jv_coordinator", "admin"].includes(
-    role
-  );
-
   return (
     <div className="p-6 flex flex-col sm:flex-row justify-between items-start sm:items-center space-y-4 sm:space-y-0">
       <div className="flex items-center space-x-4">
-        <div className={`text-sm ${COLORS.text.secondary}`}>
-          Showing {entriesCount.filtered} of {entriesCount.total} entries
-        </div>
-        {entriesCount.filtered !== entriesCount.total && (
-          <div className="px-3 py-1 bg-blue-500/20 text-blue-400 rounded-full text-xs">
-            Filtered
+        {role === "jv_coordinator" && paginationInfo ? (
+          <div className="flex items-center space-x-4">
+            <div className={`text-sm ${COLORS.text.secondary}`}>
+              Showing {paginationInfo.startItem}-{paginationInfo.endItem} of{" "}
+              {paginationInfo.totalItems}
+            </div>
+            <div className="px-3 py-1 bg-blue-500/20 text-blue-400 rounded-full text-xs">
+              Page {paginationInfo.currentPage}/{paginationInfo.totalPages}
+            </div>
+            {entriesCount.total && (
+              <div className="px-3 py-1 bg-green-500/20 text-green-400 rounded-full text-xs">
+                Month Total: {entriesCount.total}
+              </div>
+            )}
+          </div>
+        ) : (
+          <div className={`text-sm ${COLORS.text.secondary}`}>
+            Showing {entriesCount.filtered} of {entriesCount.total} entries
           </div>
         )}
       </div>
@@ -344,6 +357,9 @@ interface ProductionTableProps {
   role: UserRole;
   currentPage: number;
   goToNextPage: () => void;
+  paginationInfo:
+    | Record<string, string | boolean | number | undefined>
+    | undefined;
 }
 
 const ProductionTable: React.FC<ProductionTableProps> = ({
@@ -360,6 +376,7 @@ const ProductionTable: React.FC<ProductionTableProps> = ({
   currentPage,
   total,
   goToNextPage,
+  paginationInfo,
 }) => {
   if (loading) {
     return (
@@ -387,7 +404,7 @@ const ProductionTable: React.FC<ProductionTableProps> = ({
       </div>
     );
   }
-  console.log(role, "role");
+
   return (
     <>
       <div className="overflow-x-auto">
@@ -400,7 +417,7 @@ const ProductionTable: React.FC<ProductionTableProps> = ({
                 "Volume (BBL)",
                 "BSW (%)",
                 "Temperature (°F)",
-                "Pressure (PSI)",
+                "API Gravity (°API)",
                 "Status",
                 canEdit && role === "jv_coordinator" ? "Actions" : "",
               ].map((i) => (
@@ -421,7 +438,7 @@ const ProductionTable: React.FC<ProductionTableProps> = ({
                 >
                   <div className="flex flex-col">
                     <span className="text-sm font-medium">
-                      {new Date(entry.timestamp).toLocaleDateString()}
+                      {formatWithOrdinal(entry.timestamp)}
                     </span>
                     <span className={`text-xs ${COLORS.text.muted}`}>
                       {new Date(entry.timestamp).toLocaleTimeString()}
@@ -454,7 +471,7 @@ const ProductionTable: React.FC<ProductionTableProps> = ({
                 <td
                   className={`px-6 py-4 whitespace-nowrap text-sm ${COLORS.text.primary}`}
                 >
-                  {entry.pressure_psi}
+                  {entry.api_gravity}
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm">
                   {entry?.edited_by && !entry?.isApproved ? (
@@ -506,41 +523,119 @@ const ProductionTable: React.FC<ProductionTableProps> = ({
           </tbody>
         </table>
       </div>
-      <div className="flex items-center justify-between p-4 border-t border-white/10">
-        <button
-          onClick={goToPreviousPage}
-          disabled={!hasPrevious || loading}
-          className={`px-4 py-2 rounded-lg flex items-center space-x-2 transition-colors ${
-            !hasPrevious || loading
-              ? "text-gray-500 cursor-not-allowed"
-              : "text-blue-400 hover:bg-blue-400/10"
-          }`}
-        >
-          <span>← Previous</span>
-        </button>
 
-        <div className="flex items-center space-x-4">
-          <span className={`text-sm ${COLORS.text.secondary}`}>
-            Page {currentPage + 1}
-          </span>
-          <span className={`text-xs ${COLORS.text.muted}`}>
-            Showing {data.length} of {total} entries
-          </span>
-        </div>
-
-        <button
-          onClick={goToNextPage}
-          disabled={!hasMore || loading}
-          className={`px-4 py-2 rounded-lg flex items-center space-x-2 transition-colors ${
-            !hasMore || loading
-              ? "text-gray-500 cursor-not-allowed"
-              : "text-blue-400 hover:bg-blue-400/10"
-          }`}
-        >
-          <span>{loading ? "Loading..." : "Next →"}</span>
-        </button>
-      </div>
+      <PaginationComponent
+        goToPreviousPage={goToPreviousPage}
+        loading={loading}
+        hasPrevious={hasPrevious}
+        paginationInfo={paginationInfo}
+        currentPage={currentPage}
+        data={data}
+        goToNextPage={goToNextPage}
+        hasMore={hasMore}
+        total={total}
+      />
     </>
+  );
+};
+
+interface PaginationProps {
+  data: ProductionEntry[];
+  loading: boolean;
+  goToPreviousPage: () => void;
+  hasPrevious: boolean;
+  hasMore: boolean;
+  total: number;
+  currentPage: number;
+  goToNextPage: () => void;
+  paginationInfo:
+    | Record<string, string | boolean | number | undefined>
+    | undefined;
+}
+const PaginationComponent: React.FC<PaginationProps> = ({
+  goToPreviousPage,
+  loading,
+  hasPrevious,
+  paginationInfo,
+  currentPage,
+  data,
+  goToNextPage,
+  hasMore,
+  total,
+}) => {
+  return (
+    <div className="flex items-center justify-between p-4 border-t border-white/10">
+      <button
+        onClick={goToPreviousPage}
+        disabled={!hasPrevious || loading}
+        className={`px-4 py-2 rounded-lg flex items-center space-x-2 transition-colors ${
+          !hasPrevious || loading
+            ? "text-gray-300 cursor-not-allowed opacity-50"
+            : "text-blue-400 hover:bg-blue-400/10"
+        }`}
+      >
+        <span>← Previous</span>
+      </button>
+
+      <div className="flex items-center space-x-4">
+        {paginationInfo ? (
+          <>
+            {/* Page Info */}
+            <span className={`text-sm ${COLORS.text.secondary}`}>
+              Page {paginationInfo.currentPage} of {paginationInfo.totalPages}
+            </span>
+
+            {/* Items Range */}
+            <span className={`text-xs ${COLORS.text.muted}`}>
+              {paginationInfo.startItem}-{paginationInfo.endItem} of{" "}
+              {paginationInfo.totalItems}
+            </span>
+
+            {/* Progress bar for large datasets */}
+            {(paginationInfo?.totalItems as number) > 31 && (
+              <div className="flex items-center space-x-2">
+                <div className="w-20 h-2 bg-gray-700 rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-blue-400 transition-all duration-300"
+                    style={{
+                      width: `${Math.min(
+                        100,
+                        paginationInfo?.progressPercentage as number
+                      )}%`,
+                    }}
+                  />
+                </div>
+                <span className={`text-xs ${COLORS.text.muted}`}>
+                  {paginationInfo.progressPercentage}%
+                </span>
+              </div>
+            )}
+          </>
+        ) : (
+          // Fallback to original display
+          <>
+            <span className={`text-sm ${COLORS.text.secondary}`}>
+              Page {currentPage + 1}
+            </span>
+            <span className={`text-xs ${COLORS.text.muted}`}>
+              Showing {data.length} of {total} entries
+            </span>
+          </>
+        )}
+      </div>
+
+      <button
+        onClick={goToNextPage}
+        disabled={!hasMore || loading}
+        className={`px-4 py-2 rounded-lg flex items-center space-x-2 transition-colors ${
+          !hasMore || loading
+            ? "text-gray-300 cursor-not-allowed opacity-50"
+            : "text-blue-400 hover:bg-blue-400/10"
+        }`}
+      >
+        <span>{loading ? "Loading..." : "Next →"}</span>
+      </button>
+    </div>
   );
 };
 
@@ -609,7 +704,7 @@ const DynamicForm: React.FC<DynamicFormProps> = ({
 }) => {
   const [localFormData, setLocalFormData] = useState<ProductionFormData>({
     temperature_degF: formData ? formData.temperature_degF.toString() : "",
-    pressure_psi: formData ? formData.pressure_psi.toString() : "",
+    api_gravity: formData ? formData.api_gravity.toString() : "",
     bsw_percent: formData ? formData.bsw_percent.toString() : "",
     gross_volume_bbl: formData ? formData.gross_volume_bbl.toString() : "",
   });
@@ -694,16 +789,12 @@ const ProductionDashboard: React.FC = () => {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<TabType>("data");
   const [productionData, setProductionData] = useState<ProductionEntry[]>([]);
+  const [allProductionData, setAllProductionData] = useState<ProductionEntry[]>(
+    []
+  );
+
   const [total, setTotal] = useState<number>(0);
-  const [totalProductionData, setTotalProductionData] = useState<
-    ProductionEntry[]
-  >([]);
-  const [lastVisible, setLastVisible] = useState<Timestamp | null>(null);
-  const [firstVisible, setFirstVisible] = useState<Timestamp | null>(null);
-  const [firstVisibleStack, setFirstVisibleStack] = useState<Timestamp[]>([]); // For "Previous"
-  const [pageStack, setPageStack] = useState<
-    { cursor: Timestamp | null; isFirst: boolean }[]
-  >([{ cursor: null, isFirst: true }]); // Stack to track page cursors
+
   const [currentPageIndex, setCurrentPageIndex] = useState<number>(0);
   const [hasMore, setHasMore] = useState<boolean>(true);
   const [hasPrevious, setHasPrevious] = useState<boolean>(false);
@@ -726,30 +817,59 @@ const ProductionDashboard: React.FC = () => {
     endDate: formatDateForInput(lastDayOfMonth),
     search: "",
   });
-
+  const [selectedMonth, setSelectedMonth] = useState(() => {
+    const now = new Date();
+    return {
+      year: now.getFullYear(),
+      month: now.getMonth() + 1, // JavaScript months are 0-indexed
+    };
+  });
   // Load data on component mount
   useEffect(() => {
-    if (userData?.company) {
-      loadProductionData("reset");
-    }
     if (userData?.role !== "jv_coordinator") {
       setFilters((prev) => ({
         ...prev,
         partner: userData?.company || "",
       }));
     }
+    if (userData?.company) {
+      loadProductionData("reset");
+      loadAllProductionData();
+    }
   }, [userData]);
 
-  // Filter data when filters or data change
-
-  useEffect(() => {
-    loadProductionData("reset");
-  }, [filters.startDate, filters.endDate, userData?.company]);
-
   const calculations = useProductionCalculations(
-    filteredData,
-    totalProductionData
+    userData?.role === "jv_coordinator" ? allProductionData : filteredData
   );
+
+  const loadAllProductionData = async () => {
+    try {
+      const partnerId =
+        userData?.role === "jv_coordinator" ? undefined : userData?.company;
+
+      const firstDay = new Date(selectedMonth.year, selectedMonth.month - 1, 1);
+      const lastDay = new Date(selectedMonth.year, selectedMonth.month, 0);
+      lastDay.setHours(23, 59, 59, 999);
+
+      const start =
+        firstDay ||
+        (filters.startDate ? new Date(filters.startDate) : undefined);
+      const end =
+        lastDay || (filters.endDate ? new Date(filters.endDate) : undefined);
+
+      // Use the new method to get ALL entries for the period
+      const allData = await firebaseService.getAllProductionEntriesForPeriod(
+        partnerId,
+        start,
+        end
+      );
+
+      setAllProductionData(allData);
+    } catch (error) {
+      console.error("Error loading all production data:", error);
+      setAllProductionData([]);
+    }
+  };
 
   const loadProductionData = async (
     direction: "next" | "previous" | "reset" = "reset"
@@ -758,64 +878,62 @@ const ProductionDashboard: React.FC = () => {
     try {
       const partnerId =
         userData?.role === "jv_coordinator" ? undefined : userData?.company;
-      const start = filters.startDate ? new Date(filters.startDate) : undefined;
-      const end = filters.endDate ? new Date(filters.endDate) : undefined;
 
-      let cursor: Timestamp | null = null;
+      const firstDay = new Date(selectedMonth.year, selectedMonth.month - 1, 1);
+      const lastDay = new Date(selectedMonth.year, selectedMonth.month, 0);
+      lastDay.setHours(23, 59, 59, 999);
 
-      if (direction === "next") {
-        cursor = lastVisible;
+      let targetPageIndex = currentPageIndex;
+
+      if (direction === "reset") {
+        targetPageIndex = 0;
+      } else if (direction === "next") {
+        targetPageIndex = currentPageIndex + 1;
       } else if (direction === "previous") {
-        cursor = firstVisible;
+        targetPageIndex = Math.max(0, currentPageIndex - 1);
       }
-      // For reset, cursor stays null
-      console.log(partnerId, "aprrenerID");
-      const result = await firebaseService.getProductionEntries(
+
+      // Calculate how many items to skip
+      const skipCount = targetPageIndex * 31;
+
+      // Get all data needed (from start to current page + 1 page)
+      const allDataResult = await firebaseService.getProductionEntries(
         partnerId,
-        start,
-        end,
-        10,
-        cursor ?? undefined,
-        direction === "reset" ? "next" : direction
+        firstDay,
+        lastDay,
+        skipCount + 31, // Get enough data to include our target page
+        undefined,
+        "next"
       );
 
-      setProductionData(result.data);
-      setTotal(result.total);
-      setFilteredData(result.data);
-      setLastVisible(result.lastVisible);
-      setFirstVisible(result.firstVisible);
+      // Extract just the target page data
+      const startIndex = skipCount;
+      const endIndex = startIndex + 31;
+      const targetPageData = allDataResult.data.slice(startIndex, endIndex);
 
-      // Update page tracking
-      if (direction === "reset") {
-        setPageStack([{ cursor: null, isFirst: true }]);
-        setCurrentPageIndex(0);
-        setHasPrevious(false);
-      } else if (direction === "next") {
-        const newPageIndex = currentPageIndex + 1;
-        const newPageStack = [...pageStack];
-        if (newPageIndex >= pageStack.length) {
-          newPageStack.push({ cursor: result.firstVisible, isFirst: false });
-        }
-        setPageStack(newPageStack);
-        setCurrentPageIndex(newPageIndex);
-        setHasPrevious(newPageIndex > 0);
-      } else if (direction === "previous") {
-        const newPageIndex = Math.max(0, currentPageIndex - 1);
-        setCurrentPageIndex(newPageIndex);
-        setHasPrevious(newPageIndex > 0);
-      }
+      setProductionData(targetPageData);
+      setTotal(allDataResult.total);
+      setFilteredData(targetPageData);
+      setCurrentPageIndex(targetPageIndex);
 
-      // Update hasMore based on whether we got a full page
-      setHasMore(result.data.length === 10);
+      // Update navigation states
+      setHasPrevious(targetPageIndex > 0);
+      const totalPages = Math.ceil(allDataResult.total / 31);
+      setHasMore(targetPageIndex < totalPages - 1);
     } catch (error) {
       console.error("Error loading production data:", error);
+      setProductionData([]);
+      setFilteredData([]);
+      setTotal(0);
+      setHasMore(false);
+      setHasPrevious(false);
     } finally {
       setLoading(false);
     }
   };
-
+  // 3. Simplified navigation functions
   const goToNextPage = () => {
-    if (hasMore && !loading && lastVisible) {
+    if (hasMore && !loading) {
       loadProductionData("next");
     }
   };
@@ -826,12 +944,35 @@ const ProductionDashboard: React.FC = () => {
     }
   };
 
+  useEffect(() => {
+    setCurrentPageIndex(0);
+    loadProductionData("reset");
+    loadAllProductionData();
+  }, [filters.startDate, filters.endDate, userData?.company, selectedMonth]);
+
+  // Add a helper function to get pagination info
+  const getPaginationInfo = () => {
+    const startItem = currentPageIndex * 31 + 1;
+    const endItem = Math.min(startItem + filteredData.length - 1, total);
+
+    return {
+      startItem,
+      endItem,
+      totalItems: total,
+      currentPage: currentPageIndex + 1,
+      totalPages: Math.ceil(total / 31),
+      hasNextPage: hasMore,
+      hasPreviousPage: hasPrevious,
+      itemsOnCurrentPage: filteredData.length,
+      progressPercentage:
+        total > 0
+          ? Math.round((((currentPageIndex + 1) * 31) / total) * 100)
+          : 0,
+    };
+  };
+
   // Form handling
   const handleSubmit = async (data: ProductionFormData): Promise<void> => {
-    // if (!userData?.permissions.includes(permissionsList.canCreateProd)) {
-    //   alert("You are not authorized to perform this operation");
-    //   return;
-    // }
     if (!userData) {
       alert("You are not authorized to perform this operation");
       return;
@@ -843,7 +984,7 @@ const ProductionDashboard: React.FC = () => {
           gross_volume_bbl: parseFloat(data.gross_volume_bbl),
           bsw_percent: parseFloat(data.bsw_percent),
           temperature_degF: parseFloat(data.temperature_degF),
-          pressure_psi: parseFloat(data.pressure_psi),
+          api_gravity: parseFloat(data.api_gravity),
           isApproved: userData?.role === "jv_partner",
           ...(userData?.role !== "jv_partner" && { edited_by: auth.uid || "" }),
         };
@@ -857,7 +998,7 @@ const ProductionDashboard: React.FC = () => {
           gross_volume_bbl: parseFloat(data.gross_volume_bbl),
           bsw_percent: parseFloat(data.bsw_percent),
           temperature_degF: parseFloat(data.temperature_degF),
-          pressure_psi: parseFloat(data.pressure_psi),
+          api_gravity: parseFloat(data.api_gravity),
           timestamp: new Date(),
           created_by: auth.uid || "",
           isApproved: false,
@@ -866,7 +1007,10 @@ const ProductionDashboard: React.FC = () => {
       }
 
       handleCloseForm();
-      await loadProductionData();
+      await Promise.all([
+        loadProductionData(),
+        loadAllProductionData(), // Reload both datasets
+      ]);
     } catch (error) {
       console.error("Error saving production entry:", error);
     } finally {
@@ -887,7 +1031,10 @@ const ProductionDashboard: React.FC = () => {
     if (window.confirm("Are you sure you want to delete this entry?")) {
       try {
         await firebaseService.deleteProductionEntry(id);
-        await loadProductionData();
+        await Promise.all([
+          loadProductionData(),
+          loadAllProductionData(), // Reload both datasets
+        ]);
       } catch (error) {
         console.error("Error deleting entry:", error);
       }
@@ -912,6 +1059,26 @@ const ProductionDashboard: React.FC = () => {
       </div>
     );
   }
+  const isCurrentOrFutureMonth =
+    selectedMonth.year === new Date().getFullYear() &&
+    selectedMonth.month >= new Date().getMonth() + 1;
+
+  const handleMonthChange = (direction: "prev" | "next"): void => {
+    setSelectedMonth((prev) => {
+      const newDate = new Date(prev.year, prev.month - 1); // Convert to 0-indexed month
+      if (direction === "prev") {
+        newDate.setMonth(newDate.getMonth() - 1);
+      } else {
+        newDate.setMonth(newDate.getMonth() + 1);
+      }
+
+      return {
+        year: newDate.getFullYear(),
+        month: newDate.getMonth() + 1, // Convert back to 1-indexed month
+      };
+    });
+  };
+
   return (
     <div className={`min-h-screen ${COLORS.background.gradient} pt-20`}>
       <div className="max-w-7xl mx-auto p-6">
@@ -935,23 +1102,18 @@ const ProductionDashboard: React.FC = () => {
         <div
           className={`${COLORS.background.card} backdrop-blur-xl ${COLORS.border.light} border rounded-2xl mb-6 overflow-hidden`}
         >
-          <TabNavigation activeTab={activeTab} onTabChange={setActiveTab} />
-
-          {/* Filters */}
-          <div
-            className={`p-6 ${COLORS.background.overlay} border-b border-white/10`}
-          >
-            <DateFilters filters={filters} onFiltersChange={setFilters} />
-          </div>
-
-          {/* Action Buttons */}
-          <ActionButtons
-            role={userData?.role as string}
-            onAddEntry={() => setShowForm(true)}
-            onDownloadReport={handleDownloadReport}
+          <TabNavigation
+            activeTab={activeTab}
+            onTabChange={setActiveTab}
+            handleMonthChange={handleMonthChange}
+            selectedMonth={selectedMonth}
+            isCurrentOrFutureMonth={isCurrentOrFutureMonth}
+            paginationInfo={getPaginationInfo()}
+            role={userData?.role as UserRole}
             entriesCount={{
-              filtered: filteredData.length,
-              total: total,
+              filtered: getPaginationInfo().itemsOnCurrentPage,
+              total: getPaginationInfo().totalItems,
+              // allEntries: allProductionData.length, // For showing month total
             }}
           />
         </div>
@@ -963,11 +1125,13 @@ const ProductionDashboard: React.FC = () => {
             <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
               <SummaryCard
                 title="Total Volume"
-                value={calculations.totalVolume.toFixed(1)}
+                value={formatVolume(calculations.totalVolume).value}
+                unit={formatVolume(calculations.totalVolume).unit}
+                // value={calculations.totalVolume.toFixed(1)}
                 color="blue"
-                unit=" BBL"
+                // unit=" BBL"
                 icon={BarChart3}
-                trend={{ value: 12.5, isPositive: true }}
+                // trend={{ value: 12.5, isPositive: true }}
               />
               <SummaryCard
                 title="Avg BSW"
@@ -975,7 +1139,7 @@ const ProductionDashboard: React.FC = () => {
                 color="green"
                 unit="%"
                 icon={Droplets}
-                trend={{ value: 2.1, isPositive: false }}
+                // trend={{ value: 2.1, isPositive: false }}
               />
               <SummaryCard
                 title="Avg Temperature"
@@ -986,35 +1150,60 @@ const ProductionDashboard: React.FC = () => {
               />
               <SummaryCard
                 title="Total Entries"
-                value={filteredData.length}
+                value={
+                  userData?.role === "jv_coordinator"
+                    ? allProductionData.length
+                    : filteredData.length
+                }
                 color="purple"
                 icon={Database}
-                trend={{ value: 8.2, isPositive: true }}
+                // trend={{ value: 8.2, isPositive: true }}
               />
             </div>
 
             {/* Charts */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div
+              className={`grid grid-cols-1 ${
+                !["field_operator", "jv_partner"].includes(
+                  userData?.role as string
+                )
+                  ? "lg:grid-cols-2"
+                  : "lg:grid-cols-1"
+              }  gap-6`}
+            >
               {/* Production Chart */}
               <div className="space-y-3">
                 <ProductionChart
                   data={calculations.chartData}
-                  title="Daily Production Volume"
+                  title={`${new Date(
+                    selectedMonth.year,
+                    selectedMonth.month - 1
+                  ).toLocaleDateString("en-US", {
+                    year: "numeric",
+                    month: "long",
+                  })} Production Volume`}
                 />
               </div>
 
               {/* Partner Distribution */}
-              <div className="space-y-3">
-                <PartnerPieChart
-                  data={calculations.partnerData}
-                  title={
-                    userData?.role === "jv_coordinator"
-                      ? "Volume by Partner"
-                      : "Your Volume"
-                  }
-                  colors={CHART_COLORS}
-                />
-              </div>
+
+              {!["field_operator", "jv_partner"].includes(
+                userData?.role as string
+              ) ? (
+                <div className="space-y-3">
+                  <PartnerPieChart
+                    data={calculations.partnerData}
+                    title={
+                      userData?.role === "jv_coordinator"
+                        ? "Volume by Partner"
+                        : "Your Volume"
+                    }
+                    colors={CHART_COLORS}
+                  />
+                </div>
+              ) : (
+                ""
+              )}
             </div>
           </div>
         )}
@@ -1024,16 +1213,51 @@ const ProductionDashboard: React.FC = () => {
             className={`${COLORS.background.card} backdrop-blur-xl ${COLORS.border.light} border rounded-2xl overflow-hidden`}
           >
             <div className="p-6 border-b border-white/10">
-              <div className="flex items-center space-x-3">
-                <Table className={`w-5 h-5 ${COLORS.primary.blue[400]}`} />
-                <h3 className={`text-lg font-semibold ${COLORS.text.primary}`}>
-                  Production Data Table
-                </h3>
-                <span
-                  className={`px-3 py-1 rounded-full text-xs ${COLORS.background.glassHover} ${COLORS.text.secondary}`}
-                >
-                  {filteredData.length} entries
-                </span>
+              <div className="flex items-center space-x-3 justify-between">
+                <div className="flex space-x-3 items-center ">
+                  <Table className={`w-5 h-5 ${COLORS.primary.blue[400]}`} />
+                  <h3
+                    className={`text-lg font-semibold ${COLORS.text.primary}`}
+                  >
+                    Production Data Table
+                  </h3>
+                  <span
+                    className={`px-3 py-1 rounded-full text-xs ${COLORS.background.glassHover} ${COLORS.text.secondary}`}
+                  >
+                    {(() => {
+                      const info = getPaginationInfo();
+                      return `${info.startItem}-${info.endItem} of ${info.totalItems}`;
+                    })()}
+                  </span>
+
+                  {total > 31 && (
+                    <div className="flex items-center space-x-2 text-sm text-gray-400">
+                      <span>
+                        Page {getPaginationInfo().currentPage} of{" "}
+                        {getPaginationInfo().totalPages}
+                      </span>
+                    </div>
+                  )}
+                </div>
+                <PaginationComponent
+                  goToPreviousPage={goToPreviousPage}
+                  loading={loading}
+                  hasPrevious={hasPrevious}
+                  paginationInfo={getPaginationInfo()}
+                  currentPage={currentPageIndex}
+                  data={filteredData}
+                  goToNextPage={goToNextPage}
+                  hasMore={hasMore}
+                  total={total}
+                />
+                <p className="text-white">
+                  Total Production:{" "}
+                  <span
+                    className={`px-3 py-1 rounded-full text-xs ${COLORS.background.glassHover} ${COLORS.text.secondary}`}
+                  >
+                    {formatNumber(calculations.totalVolume)} bbls
+                  </span>
+                </p>
               </div>
             </div>
             <ProductionTable
@@ -1052,6 +1276,7 @@ const ProductionDashboard: React.FC = () => {
               hasPrevious={hasPrevious}
               hasMore={hasMore}
               goToNextPage={goToNextPage}
+              paginationInfo={getPaginationInfo()}
             />
           </div>
         )}

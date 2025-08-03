@@ -7,13 +7,14 @@ import {
   TerminalReceipt,
   STANDARD_CONDITIONS,
   API_MPMS_CONSTANTS,
+  AllocationInputPressure,
 } from "../types";
 
 export class AllocationEngine {
   /**
    * Calculate temperature correction factor using API MPMS Chapter 12.3
    */
-  private calculateTemperatureCorrection(
+  private calculateTemperatureCorrectionPressure(
     observedTemp: number,
     standardTemp: number = STANDARD_CONDITIONS.TEMPERATURE_DEGF
   ): number {
@@ -27,6 +28,68 @@ export class AllocationEngine {
       BETA_COEFFICIENT * Math.pow(tempDifference, 2);
 
     return Math.max(0.95, Math.min(1.05, correction)); // Clamp between 0.95 and 1.05
+  }
+
+  private getTemperatureCorrectionCoefficients(apiGravity: number): {
+    alpha: number;
+    beta: number;
+  } {
+    // API MPMS 11.1 coefficients based on API gravity
+    // Linear interpolation between standard values
+
+    if (apiGravity <= 10) {
+      // Heavy crude
+      return { alpha: 0.0003, beta: 0.0000001 };
+    } else if (apiGravity <= 25) {
+      // Medium crude
+      const factor = (apiGravity - 10) / 15;
+      return {
+        alpha: 0.0003 + factor * 0.0001,
+        beta: 0.0000001 + factor * 0.0000001,
+      };
+    } else if (apiGravity <= 45) {
+      // Light crude
+      const factor = (apiGravity - 25) / 20;
+      return {
+        alpha: 0.0004 + factor * 0.0001,
+        beta: 0.0000002 + factor * 0.0000003,
+      };
+    } else {
+      // Very light crude/condensate
+      return { alpha: 0.0005, beta: 0.0000005 };
+    }
+  }
+
+  private calculateAPIGravityCorrection(
+    apiGravity: number,
+    standardAPI: number // e.g., 35° API
+  ): number {
+    // Convert API to specific gravity
+    const specificGravity = 141.5 / (apiGravity + 131.5);
+    const standardSpecificGravity =
+      141.5 / (standardAPI ?? STANDARD_CONDITIONS.API_GRAVITY + 131.5);
+
+    // Volume correction based on density difference
+    // Higher API (lighter crude) = larger volume at same mass
+    const correction = standardSpecificGravity / specificGravity;
+
+    return Math.max(0.9, Math.min(1.15, correction));
+  }
+
+  private calculateTemperatureCorrection(
+    observedTemp: number,
+    apiGravity: number,
+    standardTemp: number = STANDARD_CONDITIONS.TEMPERATURE_DEGF
+  ): number {
+    const tempDifference = observedTemp - standardTemp;
+    const { alpha, beta } =
+      this.getTemperatureCorrectionCoefficients(apiGravity);
+
+    // VCF = 1 - α(T - Tₛ) - β(T - Tₛ)²
+    const correction =
+      1 - alpha * tempDifference - beta * Math.pow(tempDifference, 2);
+
+    return Math.max(0.95, Math.min(1.05, correction));
   }
 
   /**
@@ -48,7 +111,39 @@ export class AllocationEngine {
   /**
    * Calculate net volume after BS&W and temperature/pressure corrections
    */
-  private calculateNetVolume(entry: AllocationInput): number {
+  // (entry: AllocationInput): number {
+
+  public calculateNetVolume(
+    entry: AllocationInput,
+    terminalGravity: number
+  ): number {
+    const { gross_volume_bbl, bsw_percent, temperature_degF, api_gravity } =
+      entry;
+    // Water cut correction
+    const waterCutFactor = 1 - bsw_percent / 100;
+
+    // API-dependent temperature correction
+    const tempCorrection = this.calculateTemperatureCorrection(
+      temperature_degF,
+      api_gravity
+    );
+
+    // API gravity correction to standard conditions
+    const apiCorrection = this.calculateAPIGravityCorrection(
+      api_gravity,
+      terminalGravity
+    );
+
+    // Combined net volume
+    const netVolumeWithCorrection =
+      gross_volume_bbl * waterCutFactor * tempCorrection * apiCorrection;
+
+    const netVolume = gross_volume_bbl * waterCutFactor;
+
+    // return Math.round(netVolume * 100) / 100; // Round to 2 decimal places
+    return Math.round(netVolumeWithCorrection * 100) / 100;
+  }
+  private calculateNetVolumePressure(entry: AllocationInputPressure): number {
     const { gross_volume_bbl, bsw_percent, temperature_degF, pressure_psi } =
       entry;
 
@@ -57,7 +152,7 @@ export class AllocationEngine {
 
     // Apply temperature correction
     const tempCorrection =
-      this.calculateTemperatureCorrection(temperature_degF);
+      this.calculateTemperatureCorrectionPressure(temperature_degF);
     const volumeAfterTemp = volumeAfterBSW * tempCorrection;
 
     // Apply pressure correction
@@ -83,7 +178,7 @@ export class AllocationEngine {
    */
   public calculateAllocation(
     productionEntries: AllocationInput[],
-    terminalReceipt: Pick<TerminalReceipt, "final_volume_bbl">
+    terminalReceipt: TerminalReceipt
   ): AllocationOutput {
     if (productionEntries.length === 0) {
       throw new Error("No production entries provided for allocation");
@@ -92,7 +187,10 @@ export class AllocationEngine {
     // Step 1: Calculate net volumes for each entry
     const netVolumes = productionEntries.map((entry) => ({
       ...entry,
-      net_volume: this.calculateNetVolume(entry),
+      net_volume: this.calculateNetVolume(
+        entry,
+        terminalReceipt?.api_gravity as number
+      ),
     }));
 
     // Step 2: Calculate totals
@@ -206,9 +304,9 @@ export class AllocationEngine {
         );
       }
 
-      if (entry.pressure_psi < 0 || entry.pressure_psi > 1000) {
+      if (entry.api_gravity < 10 || entry.api_gravity > 36) {
         errors.push(
-          `Entry ${index + 1}: Pressure must be between 0 and 1000 PSI`
+          `Entry ${index + 1}: Pressure must be between 10 and 36°API `
         );
       }
     });

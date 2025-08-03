@@ -331,15 +331,13 @@ const ReconciliationPage: React.FC = () => {
   >([]);
   const [selectedReport, setSelectedReport] =
     useState<ReconciliationReport | null>(null);
-  const [allocationResults, setAllocationResults] = useState<
-    AllocationResult[]
-  >([]);
+
   const [periodSummary, setPeriodSummary] =
     useState<ReconciliationPeriodSummary | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
   const [showRunForm, setShowRunForm] = useState<boolean>(false);
   const [showReportModal, setShowReportModal] = useState<boolean>(false);
- 
+
   const { auth, data: userData, loading: userLoading } = useUser();
 
   // Default to current month
@@ -365,12 +363,8 @@ const ReconciliationPage: React.FC = () => {
   const loadReconciliationData = async () => {
     setLoading(true);
     try {
-      const [runs, allocations] = await Promise.all([
-        firebaseService.getReconciliationRuns(),
-        firebaseService.getAllocationResults(),
-      ]);
-      setReconciliationRuns(runs as any);
-      setAllocationResults(allocations as any);
+      const runs = await firebaseService.getReconciliationRuns();
+      setReconciliationRuns(runs.slice(0, 5) as any);
     } catch (error) {
       console.error("Error loading reconciliation data:", error);
     } finally {
@@ -497,7 +491,6 @@ const ReconciliationPage: React.FC = () => {
   const completedRuns = reconciliationRuns.filter(
     (run) => run.status === "completed"
   ).length;
-  
 
   if (userLoading) {
     return (
@@ -521,7 +514,6 @@ const ReconciliationPage: React.FC = () => {
               <Calculator className="w-8 h-8 text-white" />
             </div>
             <div className="w-[60%] md:w-auto">
-             
               <p className={`${COLORS.text.secondary}`}>
                 Trigger period-based reconciliations and manage partner
                 back-allocations
@@ -553,40 +545,43 @@ const ReconciliationPage: React.FC = () => {
             color="orange"
             icon={BarChart3}
           />
-         
         </div>
 
         {/* Action Bar */}
-        {userData?.role ==='jv_coordinator' ?
-        <div
-          className={`${COLORS.background.card} backdrop-blur-xl ${COLORS.border.light} border rounded-2xl p-6 mb-8`}
-        >
-          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center space-y-4 sm:space-y-0">
-            <div className="flex items-start space-x-4">
-              <div
-                className={`w-12 h-12 rounded-xl bg-gradient-to-br ${COLORS.primary.blue[600]} ${COLORS.primary.purple[600]} flex items-center justify-center`}
+        {userData?.role === "jv_coordinator" ? (
+          <div
+            className={`${COLORS.background.card} backdrop-blur-xl ${COLORS.border.light} border rounded-2xl p-6 mb-8`}
+          >
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center space-y-4 sm:space-y-0">
+              <div className="flex items-start space-x-4">
+                <div
+                  className={`w-12 h-12 rounded-xl bg-gradient-to-br ${COLORS.primary.blue[600]} ${COLORS.primary.purple[600]} flex items-center justify-center`}
+                >
+                  <Workflow className="w-6 h-6 text-white" />
+                </div>
+                <div>
+                  <h3
+                    className={`text-lg font-semibold ${COLORS.text.primary}`}
+                  >
+                    Period Reconciliation
+                  </h3>
+                  <p className={`text-sm ${COLORS.text.secondary}`}>
+                    Run reconciliations for a specific period (usually monthly)
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowRunForm(true)}
+                className={`flex items-center space-x-2 px-6 py-3 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-xl hover:from-green-700 hover:to-emerald-700 transition-all duration-300 transform hover:scale-[1.02]`}
               >
-                <Workflow className="w-6 h-6 text-white" />
-              </div>
-              <div>
-                <h3 className={`text-lg font-semibold ${COLORS.text.primary}`}>
-                  Period Reconciliation
-                </h3>
-                <p className={`text-sm ${COLORS.text.secondary}`}>
-                  Run reconciliations for a specific period (usually monthly)
-                </p>
-              </div>
+                <Play className="w-4 h-4" />
+                <span>Run Reconciliation</span>
+              </button>
             </div>
-            <button
-              onClick={() => setShowRunForm(true)}
-              className={`flex items-center space-x-2 px-6 py-3 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-xl hover:from-green-700 hover:to-emerald-700 transition-all duration-300 transform hover:scale-[1.02]`}
-            >
-              <Play className="w-4 h-4" />
-              <span>Run Reconciliation</span>
-            </button>
           </div>
-        </div>
-        : ''}
+        ) : (
+          ""
+        )}
 
         {/* Reconciliation Runs Table */}
         <div
@@ -619,12 +614,16 @@ const ReconciliationPage: React.FC = () => {
                 <p className={`text-lg ${COLORS.text.secondary} mb-2`}>
                   No reconciliation runs yet
                 </p>
-                <button
-                  onClick={() => setShowRunForm(true)}
-                  className="text-green-400 hover:text-green-300 font-medium hover:underline transition-colors"
-                >
-                  Run your first reconciliation
-                </button>
+                {userData?.role === "jv_coordinator" ? (
+                  <button
+                    onClick={() => setShowRunForm(true)}
+                    className="text-green-400 hover:text-green-300 font-medium hover:underline transition-colors"
+                  >
+                    Run your first reconciliation
+                  </button>
+                ) : (
+                  ""
+                )}
               </div>
             ) : (
               <table className="w-full">
@@ -675,7 +674,7 @@ const ReconciliationPage: React.FC = () => {
                 <tbody className="divide-y divide-white/10">
                   {reconciliationRuns.map((run) => {
                     const volumeLoss =
-                      -(run.total_input_volume - run.total_terminal_volume);
+                      run.total_input_volume - run.total_terminal_volume;
                     return (
                       <tr
                         key={run.id}
@@ -704,7 +703,9 @@ const ReconciliationPage: React.FC = () => {
                           {run.total_terminal_volume.toLocaleString()} BBL
                         </td>
                         <td
-                          className={`px-6 py-4 whitespace-nowrap text-sm font-medium ${volumeLoss <0 ?'text-red-400':'text-green-400'}`}
+                          className={`px-6 py-4 whitespace-nowrap text-sm font-medium ${
+                            volumeLoss > 0 ? "text-red-400" : "text-green-400"
+                          }`}
                         >
                           {volumeLoss.toLocaleString()} BBL
                         </td>
@@ -713,10 +714,8 @@ const ReconciliationPage: React.FC = () => {
                         >
                           <span
                             className={`px-2 py-1 rounded-full text-xs ${
-                              run.shrinkage_factor < 2
+                              run.shrinkage_factor > 0
                                 ? "bg-green-500/20 text-green-400"
-                                : run.shrinkage_factor < 3
-                                ? "bg-yellow-500/20 text-yellow-400"
                                 : "bg-red-500/20 text-red-400"
                             }`}
                           >
@@ -946,7 +945,7 @@ const ReconciliationPage: React.FC = () => {
                     )}
                   </span>
                 </div>
-                
+
                 <div className="flex justify-between">
                   <span className={COLORS.text.muted}>Run Date:</span>
                   <span className={`${COLORS.text.primary} font-medium`}>
@@ -991,15 +990,30 @@ const ReconciliationPage: React.FC = () => {
                 </div>
                 <div className="flex justify-between">
                   <span className={COLORS.text.muted}>Volume Loss/Gain:</span>
-                  <span className={`${(-selectedReport.summary.totalVolumeLoss) < 0 ? "text-red-400":"text-green-400"} font-medium`}>
-                    {(-selectedReport.summary.totalVolumeLoss).toLocaleString()}{" "}
+                  <span
+                    className={`${
+                      selectedReport.summary.totalVolumeLoss > 0
+                        ? "text-red-400"
+                        : "text-green-400"
+                    } font-medium`}
+                  >
+                    {selectedReport.summary.totalVolumeLoss.toLocaleString()}{" "}
                     BBL
                   </span>
                 </div>
                 <div className="flex justify-between">
                   <span className={COLORS.text.muted}>Shrinkage:</span>
-                  <span className={`${(-selectedReport.summary.shrinkagePercentage) < 0 ? "text-orange-400":"text-green-400"}  font-medium`}>
-                    {(-selectedReport.summary.shrinkagePercentage).toFixed(2)}%
+                  <span
+                    className={`${
+                      selectedReport.summary.shrinkagePercentage < 0
+                        ? "text-orange-400"
+                        : "text-green-400"
+                    }  font-medium`}
+                  >
+                    {Math.abs(
+                      selectedReport.summary.shrinkagePercentage
+                    ).toFixed(2)}
+                    %
                   </span>
                 </div>
                 <div className="flex justify-between">
@@ -1052,7 +1066,7 @@ const ReconciliationPage: React.FC = () => {
                       <th
                         className={`px-3 py-3 text-left font-medium ${COLORS.text.muted} uppercase tracking-wider`}
                       >
-                        Efficiency 
+                        Efficiency
                       </th>
                     </tr>
                   </thead>
@@ -1088,7 +1102,11 @@ const ReconciliationPage: React.FC = () => {
                                 : "text-red-400"
                             }`}
                           >
-                            {(allocation.volume_loss < 0 ?-allocation.volume_loss: allocation.volume_loss || 0).toLocaleString()} bbl
+                            {(allocation.volume_loss < 0
+                              ? -allocation.volume_loss
+                              : allocation.volume_loss || 0
+                            ).toLocaleString()}{" "}
+                            bbl
                           </td>
                           <td className={`px-3 py-3 ${COLORS.text.primary}`}>
                             {allocation.percentage.toFixed(2)}%
@@ -1115,14 +1133,17 @@ const ReconciliationPage: React.FC = () => {
             </div>
 
             <div className="flex gap-3 pt-4">
-              {userData?.role ==='admin' ?
-              <button
-                onClick={() => exportReport(selectedReport)}
-                className="flex cursor-pointer items-center space-x-2 bg-gradient-to-r from-green-600 to-emerald-600 text-white py-3 px-4 rounded-xl font-medium hover:from-green-700 hover:to-emerald-700 transition-all duration-300"
-              >
-                <Download className="w-4 h-4" />
-                <span>Export Report</span>
-              </button>:''}
+              {userData?.role === "admin" ? (
+                <button
+                  onClick={() => exportReport(selectedReport)}
+                  className="flex cursor-pointer items-center space-x-2 bg-gradient-to-r from-green-600 to-emerald-600 text-white py-3 px-4 rounded-xl font-medium hover:from-green-700 hover:to-emerald-700 transition-all duration-300"
+                >
+                  <Download className="w-4 h-4" />
+                  <span>Export Report</span>
+                </button>
+              ) : (
+                ""
+              )}
               <button
                 onClick={() => setShowReportModal(false)}
                 className={`${COLORS.background.glass} ${COLORS.text.primary} py-3 px-4 rounded-xl font-medium hover:${COLORS.background.glassHover} transition-all duration-300 ${COLORS.border.light} border`}

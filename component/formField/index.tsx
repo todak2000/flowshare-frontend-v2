@@ -1,6 +1,6 @@
 export interface ProductionFormData {
   temperature_degF: string;
-  pressure_psi: string;
+  api_gravity: string;
   bsw_percent: string;
   gross_volume_bbl: string;
 }

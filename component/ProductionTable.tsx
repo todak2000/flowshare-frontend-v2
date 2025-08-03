@@ -38,7 +38,7 @@ interface ProductionTableProps {
               <th className="text-left p-4 font-semibold text-gray-700">Volume (BBL)</th>
               <th className="text-left p-4 font-semibold text-gray-700">BSW %</th>
               <th className="text-left p-4 font-semibold text-gray-700">Temp (°F)</th>
-              <th className="text-left p-4 font-semibold text-gray-700">Pressure (PSI)</th>
+              <th className="text-left p-4 font-semibold text-gray-700">API Gravity (°API)</th>
               {canEdit && (
                 <th className="text-left p-4 font-semibold text-gray-700">Actions</th>
               )}
@@ -68,7 +68,7 @@ interface ProductionTableProps {
                   </td>
                   <td className="p-4 text-gray-900">{entry.bsw_percent}%</td>
                   <td className="p-4 text-gray-900">{entry.temperature_degF}°F</td>
-                  <td className="p-4 text-gray-900">{entry.pressure_psi} PSI</td>
+                  <td className="p-4 text-gray-900">{entry.api_gravity} PSI</td>
                   {canEdit && (
                     <td className="p-4">
                       <div className="flex gap-2">

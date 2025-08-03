@@ -1,8 +1,5 @@
 import { Timestamp } from "firebase/firestore";
-
-export const formatFirebaseTimestampRange = (start: Timestamp, end: Timestamp): string => {
-  // Helper to format individual date with ordinal suffix
-  function formatWithOrdinal(date: Date): string {
+  export function formatWithOrdinal(date: Date): string {
     const day = date.getDate();
     const suffix = (day: number): string => {
       if (day > 3 && day < 21) return "th"; // 11th-13th
@@ -23,6 +20,9 @@ export const formatFirebaseTimestampRange = (start: Timestamp, end: Timestamp): 
 
     return `${day}${suffix(day)} ${month}`;
   }
+export const formatFirebaseTimestampRange = (start: Timestamp, end: Timestamp): string => {
+  // Helper to format individual date with ordinal suffix
+
 
   const startDate = start.toDate();
   const endDate = end.toDate();

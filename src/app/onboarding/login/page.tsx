@@ -175,6 +175,19 @@ export default function LoginPage() {
           <p className={COLORS.text.secondary}>
             Sign in to your FlowShare account
           </p>
+          <div className="mt-3 text-center text-xs ">
+            <p className={COLORS.text.secondary}>
+              Go to the {" "}
+              <button
+                type="button" // Added type
+                onClick={() => router.push("/demo")}
+                className={` text-yellow-400 hover:text-yellow-700 cursor-pointer font-medium hover:underline transition-colors`}
+              >
+                demo page
+              </button>{" "}
+              to get demo login details
+            </p>
+          </div>
         </div>
         {error && <ErrorAlert message={error} />}
         <form onSubmit={handleLogin} className="space-y-6">

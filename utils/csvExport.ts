@@ -1,19 +1,20 @@
-import { ProductionEntry } from '../types';
+import { ProductionEntry } from "../types";
 
 export const generateCSV = (data: ProductionEntry[]): string => {
   const headers = [
     "Date",
-    "Partner", 
+    "Partner",
     "Volume (bbl)",
     "BSW %",
     "Temperature (°F)",
-    "Pressure (psi)",
+    "API Gravity (°API)",
   ];
 
   const rows = data.map((item) => {
-    const date = item.timestamp instanceof Date
-      ? item.timestamp.toLocaleDateString()
-      : new Date(item.timestamp).toLocaleDateString();
+    const date =
+      item.timestamp instanceof Date
+        ? item.timestamp.toLocaleDateString()
+        : new Date(item.timestamp).toLocaleDateString();
 
     return [
       date,
@@ -21,7 +22,7 @@ export const generateCSV = (data: ProductionEntry[]): string => {
       item.gross_volume_bbl.toString(),
       item.bsw_percent.toString(),
       item.temperature_degF.toString(),
-      item.pressure_psi.toString(),
+      item.api_gravity.toString(),
     ];
   });
 
@@ -34,7 +35,9 @@ export const downloadCSV = (data: ProductionEntry[], filename?: string) => {
   const url = window.URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
-  a.download = filename || `production-report-${new Date().toISOString().split("T")[0]}.csv`;
+  a.download =
+    filename ||
+    `production-report-${new Date().toISOString().split("T")[0]}.csv`;
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);

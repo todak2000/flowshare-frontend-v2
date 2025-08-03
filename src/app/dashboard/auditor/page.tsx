@@ -81,7 +81,7 @@ export default function AuditorDashboard() {
         ]);
 
       setAuditLogs(logs);
-      setProductionEntries(production);
+      setProductionEntries(production.data);
       setTerminalReceipts(terminal);
       setReconciliationRuns(reconciliation);
       setAllocationResults(
@@ -419,13 +419,13 @@ export default function AuditorDashboard() {
                     </span>
                   </div>
                   <div className="flex justify-between">
-                    <span>Entries with Valid Pressure:</span>
+                    <span>Entries with Valid API Gravity:</span>
                     <span className="font-semibold text-green-600">
                       {
                         productionEntries.filter(
                           (entry) =>
-                            entry.pressure_psi >= 0 &&
-                            entry.pressure_psi <= 1000
+                            entry.api_gravity >= 10 &&
+                            entry.api_gravity <= 36
                         ).length
                       }
                     </span>

@@ -154,85 +154,161 @@ interface TrendChartProps {
   title: string;
 }
 
-const TrendChart: React.FC<TrendChartProps> = ({ data, title }) => (
-  <div
-    className={`${COLORS.background.card} backdrop-blur-xl ${COLORS.border.light} border rounded-2xl p-6`}
-  >
-    <div className="flex items-center space-x-3 mb-6">
-      <TrendingUp className={`w-5 h-5 ${COLORS.primary.blue[400]}`} />
-      <h3 className={`text-lg font-semibold ${COLORS.text.primary}`}>
-        {title}
-      </h3>
-    </div>
-    {data.length > 0 ? (
-      <ResponsiveContainer width="100%" height={300}>
-        <LineChart data={data}>
-          <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.1)" />
-          <XAxis
-            dataKey="month"
-            axisLine={false}
-            tickLine={false}
-            tick={{ fill: "#9CA3AF", fontSize: 12 }}
-          />
-          <YAxis
-            axisLine={false}
-            tickLine={false}
-            tick={{ fill: "#9CA3AF", fontSize: 12 }}
-          />
-          <Tooltip
-            contentStyle={{
-              backgroundColor: "rgba(15, 23, 42, 0.9)",
-              backdropFilter: "blur(16px)",
-              border: "1px solid rgba(255,255,255,0.1)",
-              borderRadius: "12px",
-              color: "#fff",
-            }}
-            formatter={(value: number, name: string) => [
-              `${value.toLocaleString()} BBL`,
-              name === "allocatedVolume"
-                ? "Allocated"
-                : name === "inputVolume"
-                ? "Input"
-                : "Loss",
-            ]}
-          />
-          <Legend />
-          <Line
-            type="monotone"
-            dataKey="allocatedVolume"
-            stroke="#3b82f6"
-            strokeWidth={3}
-            dot={{ fill: "#3b82f6", strokeWidth: 2, r: 4 }}
-            name="Allocated Volume"
-          />
-          <Line
-            type="monotone"
-            dataKey="inputVolume"
-            stroke="#10b981"
-            strokeWidth={3}
-            dot={{ fill: "#10b981", strokeWidth: 2, r: 4 }}
-            name="Input Volume"
-          />
-          <Line
-            type="monotone"
-            dataKey="volumeLoss"
-            stroke="#f59e0b"
-            strokeWidth={3}
-            dot={{ fill: "#f59e0b", strokeWidth: 2, r: 4 }}
-            name="Volume Loss"
-          />
-        </LineChart>
-      </ResponsiveContainer>
-    ) : (
-      <div className="h-72 flex items-center justify-center">
-        <div className={`text-center ${COLORS.text.muted}`}>
-          <BarChart3 className="w-12 h-12 mx-auto mb-2 opacity-50" />
-          <p>No trend data available</p>
-        </div>
+const TrendChart: React.FC<TrendChartProps> = ({ data, title }) => {
+  // Helper function to format Y-axis values to MBBL
+  const formatYAxisValue = (value: number) => {
+    const mbblValue = value / 1000;
+    return mbblValue >= 1000
+      ? `${(mbblValue / 1000).toFixed(1)}`
+      : mbblValue.toFixed(1);
+  };
+
+  // Helper function to format month from various date formats
+  const formatMonth = (dateValue: string | Date) => {
+    try {
+      let date: Date;
+
+      if (typeof dateValue === "string") {
+        // Handle various string formats
+        if (dateValue.includes("-")) {
+          // Handle YYYY-MM-DD or YYYY-MM format
+          date = new Date(dateValue);
+        } else if (dateValue.length === 6) {
+          // Handle YYYYMM format
+          const year = dateValue.substring(0, 4);
+          const month = dateValue.substring(4, 6);
+          date = new Date(`${year}-${month}-01`);
+        } else {
+          date = new Date(dateValue);
+        }
+      } else {
+        date = new Date(dateValue);
+      }
+
+      // Return short month format (Jan, Feb, etc.)
+      return date.toLocaleDateString("en-US", { month: "short" });
+    } catch (error) {
+      // Fallback: return original value if parsing fails
+      return dateValue.toString().substring(0, 3);
+    }
+  };
+
+  // Process data to ensure proper month formatting
+  const processedData = data.map((item: any) => ({
+    ...item,
+    displayMonth: formatMonth(item.month),
+    // Keep original month for tooltip
+    originalMonth: item.month,
+  }));
+
+  return (
+    <div
+      className={`${COLORS.background.card} backdrop-blur-xl ${COLORS.border.light} border rounded-2xl p-6`}
+    >
+      <div className="flex items-center space-x-3 mb-6">
+        <TrendingUp className={`w-5 h-5 ${COLORS.primary.blue[400]}`} />
+        <h3 className={`text-lg font-semibold ${COLORS.text.primary}`}>
+          {title}
+        </h3>
       </div>
-    )}
-  </div>
-);
+
+      {processedData.length > 0 ? (
+        <ResponsiveContainer width="100%" height={300}>
+          <LineChart data={processedData}>
+            <CartesianGrid
+              strokeDasharray="3 3"
+              stroke="rgba(255,255,255,0.1)"
+            />
+            <XAxis
+              dataKey="displayMonth"
+              axisLine={false}
+              tickLine={false}
+              tick={{ fill: "#9CA3AF", fontSize: 12 }}
+              interval="preserveStartEnd"
+              minTickGap={20}
+            />
+            <YAxis
+              axisLine={false}
+              tickLine={false}
+              tick={{ fill: "#9CA3AF", fontSize: 12 }}
+              tickFormatter={formatYAxisValue}
+              label={{
+                value: "Volume (MBBL)",
+                angle: -90,
+                position: "insideLeft",
+                style: {
+                  textAnchor: "middle",
+                  fill: "#9CA3AF",
+                  fontSize: "12px",
+                },
+              }}
+            />
+            <Tooltip
+              contentStyle={{
+                backgroundColor: "rgba(15, 23, 42, 0.9)",
+                backdropFilter: "blur(16px)",
+                border: "1px solid rgba(255,255,255,0.1)",
+                borderRadius: "12px",
+                color: "#fff",
+              }}
+              labelFormatter={(label, payload) => {
+                // Show original month in tooltip for better context
+                const originalMonth = payload?.[0]?.payload?.originalMonth;
+                return originalMonth
+                  ? `Month: ${formatMonth(originalMonth)}`
+                  : `Month: ${label}`;
+              }}
+              formatter={(value: number, name: string) => [
+                `${(value / 1000).toFixed(2)} MBBL`,
+                name === "allocatedVolume"
+                  ? "Allocated"
+                  : name === "inputVolume"
+                  ? "Input"
+                  : "Loss",
+              ]}
+            />
+          
+            <Line
+              type="monotone"
+              dataKey="allocatedVolume"
+              stroke="#3b82f6"
+              strokeWidth={3}
+              dot={{ fill: "#3b82f6", strokeWidth: 2, r: 4 }}
+              activeDot={{ r: 6, stroke: "#3b82f6", strokeWidth: 2 }}
+              name="allocatedVolume"
+            />
+            <Line
+              type="monotone"
+              dataKey="inputVolume"
+              stroke="#10b981"
+              strokeWidth={3}
+              dot={{ fill: "#10b981", strokeWidth: 2, r: 4 }}
+              activeDot={{ r: 6, stroke: "#10b981", strokeWidth: 2 }}
+              name="inputVolume"
+            />
+            <Line
+              type="monotone"
+              dataKey="volumeLoss"
+              stroke="#f59e0b"
+              strokeWidth={3}
+              dot={{ fill: "#f59e0b", strokeWidth: 2, r: 4 }}
+              activeDot={{ r: 6, stroke: "#f59e0b", strokeWidth: 2 }}
+              name="volumeLoss"
+            />
+          </LineChart>
+        </ResponsiveContainer>
+      ) : (
+        <div className="h-72 flex items-center justify-center">
+          <div className={`text-center ${COLORS.text.muted}`}>
+            <BarChart3 className="w-12 h-12 mx-auto mb-2 opacity-50" />
+            <p>No trend data available</p>
+            <p className="text-sm mt-1">Data will appear here once available</p>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
 
 interface DistributionChartProps {
   data: VolumeDistribution[];
@@ -257,7 +333,9 @@ const DistributionChart: React.FC<DistributionChartProps> = ({
     }
     return null;
   };
-
+  const isAllocatedVolumePositive = data.some(
+    (item) => item.name === "Allocated Volume" && item.value > 0
+  );
   return (
     <div
       className={`${COLORS.background.card} backdrop-blur-xl ${COLORS.border.light} border rounded-2xl p-6`}
@@ -268,7 +346,8 @@ const DistributionChart: React.FC<DistributionChartProps> = ({
           {title}
         </h3>
       </div>
-      {data.length > 0 ? (
+
+      {data.length > 0 && isAllocatedVolumePositive ? (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           <div className="h-64">
             <ResponsiveContainer width="100%" height="100%">
@@ -560,12 +639,11 @@ const JVPartnerDashboard: React.FC = () => {
                 icon={Database}
               />
             </div>
-
             {/* Charts Section */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
               <TrendChart
                 data={chartData as ChartDataPoint[]}
-                title="6-Month Volume Trend"
+                title="6-Month Back Allocated Volume Trend"
               />
               <DistributionChart
                 data={volumeData}

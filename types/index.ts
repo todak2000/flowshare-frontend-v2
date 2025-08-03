@@ -7,7 +7,7 @@ export interface ProductionEntry {
   gross_volume_bbl: number;
   bsw_percent: number;
   temperature_degF: number;
-  pressure_psi: number;
+  api_gravity: number;
   timestamp: Date;
   hash: string;
   created_by: string;
@@ -22,7 +22,7 @@ export interface TerminalReceipt {
   initial_volume_bbl: number;
   final_volume_bbl: number;
   temperature_degF: number;
-  pressure_psi?: number;
+  api_gravity?: number;
   timestamp: Date;
   hash: string;
   created_by: string;
@@ -181,6 +181,13 @@ export interface AllocationInput {
   gross_volume_bbl: number;
   bsw_percent: number;
   temperature_degF: number;
+  api_gravity: number;
+}
+export interface AllocationInputPressure {
+  partner: string;
+  gross_volume_bbl: number;
+  bsw_percent: number;
+  temperature_degF: number;
   pressure_psi: number;
 }
 
@@ -202,6 +209,7 @@ export interface AllocationOutput {
 export const STANDARD_CONDITIONS = {
   TEMPERATURE_DEGF: 60,
   PRESSURE_PSI: 14.7,
+  API_GRAVITY: 30
 } as const;
 
 export const API_MPMS_CONSTANTS = {
@@ -251,3 +259,27 @@ export interface PartnerDataItem {
 }
 
 export type TabType = "dashboard" | "data";
+
+export interface MonthInfo {
+  year: number;
+  month: number;
+  name: string;
+}
+
+export interface GenerationStats {
+  totalEntries: number;
+  successfulEntries: number;
+  failedEntries: number;
+  partners: number;
+  months: number;
+  startDate: string;
+  endDate: string;
+}
+
+export type LogType = "info" | "success" | "error";
+
+export interface Log {
+  message: string;
+  type: LogType;
+  timestamp: string;
+}

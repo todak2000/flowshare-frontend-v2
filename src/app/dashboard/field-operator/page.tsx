@@ -24,6 +24,7 @@ import { Modal } from "../../../../component/Modal";
 import { COLORS } from "../../../../component/Home";
 import { ProductionFormData } from "../../../../component/formField";
 import { CreateProductionEntryData, ProductionEntry } from "../../../../types";
+import { formatVolume } from "../../../../utils/formatVolume";
 
 interface FormFieldConfig {
   id: string;
@@ -45,11 +46,11 @@ const FORM_FIELDS: FormFieldConfig[] = [
     icon: Thermometer,
   },
   {
-    id: "pressure",
-    key: "pressure_psi",
-    label: "Pressure",
-    unit: "PSI",
-    placeholder: "Enter pressure in PSI",
+    id: "api_gravity",
+    key: "api_gravity",
+    label: "Crude API Gravity",
+    unit: "°API",
+    placeholder: "Enter gravity value in °API",
     icon: Gauge,
   },
   {
@@ -146,6 +147,7 @@ interface ActionCardProps {
   icon: React.ComponentType<{ className?: string }>;
   onClick: () => void;
   variant: "primary" | "secondary";
+  disable?: boolean
 }
 
 const ActionCard: React.FC<ActionCardProps> = ({
@@ -155,6 +157,7 @@ const ActionCard: React.FC<ActionCardProps> = ({
   icon: Icon,
   onClick,
   variant,
+  disable=false
 }) => {
   const variants = {
     primary: `bg-gradient-to-br ${COLORS.primary.blue[600]} ${COLORS.primary.purple[600]} hover:${COLORS.primary.blue[700]} hover:${COLORS.primary.purple[700]}`,
@@ -180,8 +183,10 @@ const ActionCard: React.FC<ActionCardProps> = ({
           </p>
         </div>
       </div>
+
       <button
         onClick={onClick}
+        disabled={disable}
         className={`w-full cursor-pointer ${variants[variant]} text-white py-3 px-4 rounded-xl font-medium transition-all duration-300 transform hover:scale-[1.02]`}
       >
         {buttonText}
@@ -248,7 +253,7 @@ const FieldOperatorDashboard: React.FC = () => {
   const [showForm, setShowForm] = useState<boolean>(false);
   const [formData, setFormData] = useState<ProductionFormData>({
     temperature_degF: "",
-    pressure_psi: "",
+    api_gravity: "",
     bsw_percent: "",
     gross_volume_bbl: "",
   });
@@ -303,7 +308,7 @@ const FieldOperatorDashboard: React.FC = () => {
         gross_volume_bbl: parseFloat(formData.gross_volume_bbl),
         bsw_percent: parseFloat(formData.bsw_percent),
         temperature_degF: parseFloat(formData.temperature_degF),
-        pressure_psi: parseFloat(formData.pressure_psi),
+        api_gravity: parseFloat(formData.api_gravity),
         timestamp: new Date(),
         created_by: auth.uid,
       };
@@ -312,7 +317,7 @@ const FieldOperatorDashboard: React.FC = () => {
       setShowForm(false);
       setFormData({
         temperature_degF: "",
-        pressure_psi: "",
+        api_gravity: "",
         bsw_percent: "",
         gross_volume_bbl: "",
       });
@@ -394,8 +399,8 @@ const FieldOperatorDashboard: React.FC = () => {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
             <SummaryCard
               title="Today's Production"
-              value={todaysTotal.toFixed(1)}
-              unit=" BBL"
+              value={formatVolume(todaysTotal).value}
+              unit={formatVolume(todaysTotal).unit}
               color="blue"
               icon={BarChart3}
               // trend={{ value: 12.5, isPositive: true }}
@@ -427,6 +432,7 @@ const FieldOperatorDashboard: React.FC = () => {
 
         {/* Action Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+          {productionData.length <=0 ? 
           <ActionCard
             title="Enter Production Data"
             description="Record your daily production measurements to ensure accurate allocation and maintain data integrity."
@@ -434,7 +440,8 @@ const FieldOperatorDashboard: React.FC = () => {
             icon={Plus}
             onClick={() => setShowForm(true)}
             variant="primary"
-          />
+            disable={productionData.length===1}
+          />:''}
           <ActionCard
             title="View Historical Data"
             description="Review your past production entries, analyze trends, and track performance over time."
@@ -478,7 +485,7 @@ const FieldOperatorDashboard: React.FC = () => {
                         "Volume (BBL)",
                         "BSW (%)",
                         "Temperature (°F)",
-                        "Pressure (PSI)",
+                        "API Gravity (°API)",
                         "Status",
                       ].map((i) => (
                         <th
@@ -519,7 +526,7 @@ const FieldOperatorDashboard: React.FC = () => {
                         <td
                           className={`px-6 py-4 whitespace-nowrap text-sm ${COLORS.text.primary}`}
                         >
-                          {entry.pressure_psi}
+                          {entry.api_gravity}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm">
                           <span className="inline-flex items-center space-x-1 px-2 py-1 rounded-full text-xs bg-green-500/20 text-green-400">
