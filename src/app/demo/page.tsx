@@ -21,6 +21,7 @@ import { ProgressBar } from "../../../component/demo/ProgressBar";
 import { StatGrid } from "../../../component/demo/StatGrid";
 import { LogViewer } from "../../../component/demo/LogViewer";
 import { COLORS } from "../../../component/Home";
+import { useRouter } from "next/navigation";
 
 export interface ProductionEntryy {
   id?: string;
@@ -53,7 +54,7 @@ const ProductionDataGenerator = () => {
     {}
   );
 
-  const canGenerateData = false
+  const canGenerateData = false;
   const partners = ["Test Oil and Gas", "TUPNI", "ACE", "WINDY"];
 
   const demoAccounts: DemoAccount[] = [
@@ -297,6 +298,7 @@ const ProductionDataGenerator = () => {
     setProgress(0);
   };
 
+  const router = useRouter();
   return (
     <div
       className={`min-h-screen pt-[96px] ${COLORS.background.gradient} from-slate-50 to-slate-100 p-6`}
@@ -309,6 +311,15 @@ const ProductionDataGenerator = () => {
               <LogIn className="mr-2 text-blue-500" size={20} />
               Demo Account Access
             </h3>
+            <p className={COLORS.text.secondary}>
+              Ready to login?{" "}
+              <button
+                onClick={() => router.push("/onboarding/login")}
+                className={`${COLORS.primary.blue[400]} hover:text-purple-400 cursor-pointer font-medium hover:underline transition-colors`}
+              >
+                Get started here
+              </button>
+            </p>
           </div>
 
           {/* Demo Accounts Grid */}
