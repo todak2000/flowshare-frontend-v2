@@ -122,11 +122,12 @@ const ProductionDataGenerator = () => {
     const random = (s: number) =>
       Math.sin(s) * 10000 - Math.floor(Math.sin(s) * 10000);
 
+    // ✅ FIXED: More realistic and controlled volume ranges
     const partnerRanges = {
-      "Test Oil and Gas": { min: 18000, max: 25000, variance: 0.2 },
-      TUPNI: { min: 16000, max: 29000, variance: 0.15 },
-      ACE: { min: 40000, max: 55000, variance: 0.25 },
-      WINDY: { min: 32000, max: 68000, variance: 0.18 },
+      "Test Oil and Gas": { min: 20000, max: 30000, variance: 0.15 },
+      TUPNI: { min: 18000, max: 28000, variance: 0.12 },
+      ACE: { min: 35000, max: 50000, variance: 0.18 },
+      WINDY: { min: 30000, max: 45000, variance: 0.15 }, // ✅ Reduced max to prevent extreme values
     };
 
     type PartnerKey = keyof typeof partnerRanges;
@@ -136,53 +137,179 @@ const ProductionDataGenerator = () => {
         PartnerKey,
         { min: number; max: number; variance: number }
       >
-    )[partner as PartnerKey] ?? { min: 18000, max: 70000, variance: 0.2 };
+    )[partner as PartnerKey] ?? { min: 20000, max: 40000, variance: 0.15 };
 
     const { min, max, variance } = range;
-    const baseVolume = min + random(seed) * (max - min);
-    const seasonalFactor = 1 + 0.1 * Math.sin((dayOfYear / 365) * 2 * Math.PI);
+
+    // ✅ Volume calculation with realistic constraints
+    const baseVolume = min + Math.abs(random(seed)) * (max - min);
+
+    // ✅ FIXED: More moderate seasonal variation (5% instead of 10%)
+    const seasonalFactor = 1 + 0.05 * Math.sin((dayOfYear / 365) * 2 * Math.PI);
+
+    // ✅ FIXED: Controlled daily variation within variance limits
     const dailyVariation = 1 + (random(seed + 1) - 0.5) * variance;
-    const grossVolume = Math.round(
-      baseVolume * seasonalFactor * dailyVariation
+
+    // ✅ Ensure volume stays within reasonable bounds
+    const grossVolume = Math.max(
+      min * 0.8, // Minimum floor
+      Math.min(
+        max * 1.2, // Maximum ceiling
+        Math.round(baseVolume * seasonalFactor * dailyVariation)
+      )
     );
 
-    const bswBase = 2 + random(seed + 2) * 6;
-    const bsw = Math.round((bswBase + (grossVolume / 1000) * 0.5) * 100) / 100;
+    // ✅ FIXED: BSW calculation with strict constraints
+    // Base BSW between 8% and 15% (realistic range for most fields)
+    const bswBase = 8 + Math.abs(random(seed + 2)) * 7; // 8% to 15%
 
-    const tempBase = 70 + 10 * Math.sin((dayOfYear / 365) * 2 * Math.PI);
-    const temperature =
-      Math.round((tempBase + (random(seed + 3) - 0.5) * 10) * 10) / 10;
+    // ✅ FIXED: Small volume-dependent variation (max +3%)
+    const volumeBSWFactor = Math.min(
+      3,
+      ((grossVolume - min) / (max - min)) * 2
+    );
 
-    const apiBase = 30 + random(seed + 4) * 7;
-    const apiGravity =
-      Math.round((apiBase + (random(seed + 5) - 0.5) * 3) * 10) / 10;
+    // ✅ FIXED: Add small random daily variation (±1%)
+    const dailyBSWVariation = (random(seed + 10) - 0.5) * 2; // ±1%
 
-    // Use the selected account's email as created_by if available
+    const rawBSW = bswBase + volumeBSWFactor + dailyBSWVariation;
+
+    // ✅ CRITICAL: Hard cap BSW at 18% maximum (well below methodology limit of 20%)
+    const bsw = Math.max(5, Math.min(18, Math.round(rawBSW * 100) / 100));
+
+    // ✅ FIXED: Temperature with realistic seasonal and operational ranges
+    // Base temperature follows seasonal pattern (65°F to 85°F)
+    const tempBase = 75 + 8 * Math.sin((dayOfYear / 365) * 2 * Math.PI);
+
+    // ✅ FIXED: Daily operational variation (±5°F)
+    const dailyTempVariation = (random(seed + 3) - 0.5) * 10; // ±5°F
+
+    const rawTemp = tempBase + dailyTempVariation;
+
+    // ✅ FIXED: Hard constraints for operational temperature range
+    const temperature = Math.max(
+      60,
+      Math.min(95, Math.round(rawTemp * 10) / 10)
+    );
+
+    // ✅ FIXED: API Gravity with partner-specific ranges
+    const partnerAPIRanges = {
+      "Test Oil and Gas": { base: 32, variation: 3 }, // 29-35°API
+      TUPNI: { base: 30, variation: 2.5 }, // 27.5-32.5°API
+      ACE: { base: 34, variation: 3 }, // 31-37°API
+      WINDY: { base: 33, variation: 2.5 }, // 30.5-35.5°API
+    };
+
+    const apiRange = (
+      partnerAPIRanges as Record<
+        PartnerKey,
+        { base: number; variation: number }
+      >
+    )[partner as PartnerKey] ?? { base: 32, variation: 3 };
+
+    // ✅ API gravity with small daily variation
+    const apiBase =
+      apiRange.base + (random(seed + 4) - 0.5) * apiRange.variation * 2;
+
+    // ✅ Small quality variation (±1°API)
+    const qualityVariation = (random(seed + 5) - 0.5) * 2;
+
+    const rawAPI = apiBase + qualityVariation;
+
+    // ✅ FIXED: Hard constraints within methodology limits (10-45°API)
+    const apiGravity = Math.max(25, Math.min(40, Math.round(rawAPI * 10) / 10));
+
+    // ✅ Validation logging for extreme values
+    if (bsw > 15) {
+      console.warn(
+        `High BSW generated: ${partner} - ${bsw}% on ${date.toDateString()}`
+      );
+    }
+
+    if (grossVolume > max * 1.1) {
+      console.warn(
+        `High volume generated: ${partner} - ${grossVolume.toLocaleString()} bbl on ${date.toDateString()}`
+      );
+    }
+
     const createdBy = "test_user_system";
 
     return {
       partner,
       gross_volume_bbl: grossVolume,
-      bsw_percent: Math.max(0.1, Math.min(15, bsw)),
-      temperature_degF: Math.max(50, Math.min(90, temperature)),
-      api_gravity: Math.max(25, Math.min(36, apiGravity)),
+      bsw_percent: bsw,
+      temperature_degF: temperature,
+      api_gravity: apiGravity,
       timestamp: date,
       created_by: createdBy,
     };
   };
 
+  // ✅ ADDITIONAL: Validation function to check generated data
+
+  const validateGeneratedEntry = (entry: ProductionEntryy): string[] => {
+    const errors: string[] = [];
+
+    // Check methodology constraints
+    if (entry.bsw_percent < 0 || entry.bsw_percent >= 20) {
+      errors.push(`BSW ${entry.bsw_percent}% outside acceptable range (0-20%)`);
+    }
+
+    if (entry.temperature_degF < 50 || entry.temperature_degF > 100) {
+      errors.push(
+        `Temperature ${entry.temperature_degF}°F outside operational range (50-100°F)`
+      );
+    }
+
+    if (entry.api_gravity < 25 || entry.api_gravity > 45) {
+      errors.push(
+        `API Gravity ${entry.api_gravity}° outside crude oil range (25-45°API)`
+      );
+    }
+
+    if (entry.gross_volume_bbl < 10000 || entry.gross_volume_bbl > 100000) {
+      errors.push(
+        `Volume ${entry.gross_volume_bbl.toLocaleString()} bbl outside realistic daily range`
+      );
+    }
+
+    return errors;
+  };
+
+  // ✅ Enhanced generateMonthData with validation
   const generateMonthData = (
     year: number,
     month: number
   ): ProductionEntryy[] => {
     const daysInMonth = new Date(year, month + 1, 0).getDate();
     const monthData: ProductionEntryy[] = [];
+    let validationErrors = 0;
 
     for (let day = 1; day <= daysInMonth; day++) {
       const date = new Date(year, month, day);
       partners.forEach((partner) => {
-        monthData.push(generateRealisticData(partner, date));
+        const entry = generateRealisticData(partner, date);
+
+        // ✅ Validate each entry
+        const errors = validateGeneratedEntry(entry);
+        if (errors.length > 0) {
+          console.warn(
+            `Validation errors for ${partner} on ${date.toDateString()}:`,
+            errors
+          );
+          validationErrors++;
+        }
+
+        monthData.push(entry);
       });
+    }
+
+    if (validationErrors > 0) {
+      console.warn(
+        `Month ${
+          month + 1
+        }/${year}: ${validationErrors} entries had validation warnings`
+      );
     }
 
     return monthData;
