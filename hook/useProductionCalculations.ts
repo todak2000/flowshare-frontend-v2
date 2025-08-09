@@ -7,6 +7,7 @@ export const useProductionCalculations = (
 ) => {
   const calculations = useMemo(() => {
     // Summary calculations
+    console.log(filteredData[0], '2342343')
     const totalVolume = filteredData.reduce(
       (sum, item) => sum + item.gross_volume_bbl,
       0
@@ -15,6 +16,11 @@ export const useProductionCalculations = (
       filteredData.length === 0
         ? 0
         : filteredData.reduce((sum, item) => sum + item.bsw_percent, 0) /
+          filteredData.length;
+    const averageGravity =
+      filteredData.length === 0
+        ? 0
+        : filteredData.reduce((sum, item) => sum + item.api_gravity, 0) /
           filteredData.length;
     const averageTemperature =
       filteredData.length === 0
@@ -61,6 +67,7 @@ export const useProductionCalculations = (
     return {
       totalVolume,
       averageBSW,
+      averageGravity,
       averageTemperature,
       chartData,
       partnerData,

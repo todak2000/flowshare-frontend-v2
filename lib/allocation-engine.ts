@@ -1,124 +1,127 @@
-// lib/allocation-engine.ts
 import crypto from "crypto";
 
-import {
-  AllocationInput,
-  AllocationOutput,
-  TerminalReceipt,
-  STANDARD_CONDITIONS,
-} from "../types";
+import { AllocationInput, AllocationOutput, TerminalReceipt } from "../types";
 
 export class AllocationEngine {
   /**
-   * Calculate temperature correction factor using API MPMS Chapter 12.3
+   * Get temperature correction coefficients based on API gravity
+   * Following the methodology document's ranges and values
    */
-
   private getTemperatureCorrectionCoefficients(apiGravity: number): {
     alpha: number;
     beta: number;
   } {
-    // API MPMS 11.1 coefficients based on API gravity
-    // Linear interpolation between standard values
-
+    // Based on methodology document ranges
     if (apiGravity <= 10) {
       // Heavy crude
       return { alpha: 0.0003, beta: 0.0000001 };
     } else if (apiGravity <= 25) {
-      // Medium crude
+      // Medium crude: α = 0.0003 to 0.0004, β = 0.0000001 to 0.0000002
       const factor = (apiGravity - 10) / 15;
       return {
         alpha: 0.0003 + factor * 0.0001,
         beta: 0.0000001 + factor * 0.0000001,
       };
     } else if (apiGravity <= 45) {
-      // Light crude
+      // Light crude: α = 0.0004 to 0.0005, β = 0.0000002 to 0.0000005
       const factor = (apiGravity - 25) / 20;
       return {
         alpha: 0.0004 + factor * 0.0001,
         beta: 0.0000002 + factor * 0.0000003,
       };
     } else {
-      // Very light crude/condensate
+      // Condensate: α = 0.0005, β = 0.0000005
       return { alpha: 0.0005, beta: 0.0000005 };
     }
   }
 
+  /**
+   * Calculate API gravity correction following methodology document
+   * Standard SG / Observed SG format
+   */
   private calculateAPIGravityCorrection(
-    apiGravity: number,
-    standardAPI: number // e.g., 35° API
+    observedAPI: number,
+    terminalAPI: number
   ): number {
-    // Convert API to specific gravity
-    const specificGravity = 141.5 / (apiGravity + 131.5);
-    const standardSpecificGravity =
-      141.5 / (standardAPI ?? STANDARD_CONDITIONS.API_GRAVITY + 131.5);
+    // Calculate specific gravities using the exact formula from methodology
+    const observedSG = 141.5 / (observedAPI + 131.5);
+    const standardSG = 141.5 / (terminalAPI + 131.5);
 
-    // Volume correction based on density difference
-    // Higher API (lighter crude) = larger volume at same mass
-    const correction = standardSpecificGravity / specificGravity;
+    // API Correction = Standard SG / Observed SG (as per methodology)
+    const correction = standardSG / observedSG;
 
+    // Apply methodology constraints: 0.9 ≤ correction ≤ 1.15
     return Math.max(0.9, Math.min(1.15, correction));
   }
 
+  /**
+   * Calculate temperature correction following methodology document
+   * Temperature Correction = 1 - α(T - Ts) - β(T - Ts)²
+   */
   private calculateTemperatureCorrection(
     observedTemp: number,
     apiGravity: number,
-    standardTemp: number = STANDARD_CONDITIONS.TEMPERATURE_DEGF
+    standardTemp: number = 60 // Standard temperature is 60°F per methodology
   ): number {
     const tempDifference = observedTemp - standardTemp;
     const { alpha, beta } =
       this.getTemperatureCorrectionCoefficients(apiGravity);
 
-    // VCF = 1 - α(T - Tₛ) - β(T - Tₛ)²
+    // VCF = 1 - α(T - Ts) - β(T - Ts)² (exact formula from methodology)
     const correction =
       1 - alpha * tempDifference - beta * Math.pow(tempDifference, 2);
 
+    // Apply methodology constraints: 0.95 ≤ correction ≤ 1.05
     return Math.max(0.95, Math.min(1.05, correction));
   }
 
+  /**
+   * Calculate net volume following the exact methodology formula
+   * Net Volume = Gross Volume × Water Cut Factor × Temp Correction × API Correction
+   */
   public calculateNetVolume(
     entry: AllocationInput,
     terminalGravity: number
   ): number {
     const { gross_volume_bbl, bsw_percent, temperature_degF, api_gravity } =
       entry;
-    // Water cut correction
+
+    // Step 1: Water Cut Factor = 1 - (BSW% / 100)
     const waterCutFactor = 1 - bsw_percent / 100;
 
-    // API-dependent temperature correction
+    // Step 2: Temperature Correction
     const tempCorrection = this.calculateTemperatureCorrection(
       temperature_degF,
       api_gravity
     );
 
-    // API gravity correction to standard conditions
+    // Step 3: API Gravity Correction
     const apiCorrection = this.calculateAPIGravityCorrection(
       api_gravity,
       terminalGravity
     );
 
-    // Combined net volume
-    const netVolumeWithCorrection =
+    // Step 4: Complete Net Volume Formula (from methodology)
+    const netVolume =
       gross_volume_bbl * waterCutFactor * tempCorrection * apiCorrection;
 
-    const netVolume = gross_volume_bbl * waterCutFactor;
-
-    // return Math.round(netVolume * 100) / 100; // Round to 2 decimal places
-    return Math.round(netVolumeWithCorrection * 100) / 100;
+    return Math.round(netVolume * 100) / 100; // Round to 2 decimal places
   }
 
   /**
-   * Calculate shrinkage factor based on total input vs terminal receipt
+   * Calculate shrinkage factor based on methodology
+   * Shrinkage Factor (%) = [(Total Net Volume - Terminal Volume) / Total Net Volume] × 100
    */
   private calculateShrinkageFactor(
     totalNetInput: number,
     terminalVolume: number
   ): number {
     if (totalNetInput === 0) return 0;
-    return (totalNetInput - terminalVolume) / totalNetInput;
+    return ((totalNetInput - terminalVolume) / totalNetInput) * 100;
   }
 
   /**
-   * Main allocation function
+   * Main allocation function following exact methodology
    */
   public calculateAllocation(
     productionEntries: AllocationInput[],
@@ -128,12 +131,12 @@ export class AllocationEngine {
       throw new Error("No production entries provided for allocation");
     }
 
-    // Step 1: Calculate net volumes for each entry
+    // Step 1: Calculate net volumes for each entry using terminal API gravity
     const netVolumes = productionEntries.map((entry) => ({
       ...entry,
       net_volume: this.calculateNetVolume(
         entry,
-        terminalReceipt?.api_gravity as number
+        terminalReceipt.api_gravity as number
       ),
     }));
 
@@ -150,24 +153,33 @@ export class AllocationEngine {
 
     const terminalVolume = terminalReceipt.final_volume_bbl;
 
-    // Step 3: Calculate shrinkage factor
+    // Step 3: Calculate shrinkage factor using methodology formula
     const shrinkageFactor = this.calculateShrinkageFactor(
       totalNetVolume,
       terminalVolume
     );
 
-    // Step 4: Allocate terminal volume proportionally
+    // Step 4: Proportional allocation following methodology
+    // Partner Allocated Volume = Terminal Volume × (Partner Net Volume / Total Net Volume)
     const allocationResults = netVolumes.map((entry) => {
+      // Partner Percentage = (Partner Net Volume / Total Net Volume) × 100
       const percentage =
-        totalNetVolume > 0 ? entry.net_volume / totalNetVolume : 0;
-      const allocatedVolume = terminalVolume * percentage;
+        totalNetVolume > 0 ? (entry.net_volume / totalNetVolume) * 100 : 0;
+
+      // Partner Allocated Volume = Terminal Volume × (Partner Net Volume / Total Net Volume)
+      const allocatedVolume =
+        terminalVolume * (entry.net_volume / totalNetVolume);
+
+      // Volume Loss = Partner Gross Volume - Partner Allocated Volume
+      const volumeLoss = entry.gross_volume_bbl - allocatedVolume;
 
       return {
         partner: entry.partner,
         input_volume: entry.gross_volume_bbl,
         net_volume: entry.net_volume,
         allocated_volume: Math.round(allocatedVolume * 100) / 100,
-        percentage: Math.round(percentage * 10000) / 100, // Convert to percentage with 2 decimals
+        percentage: Math.round(percentage * 100) / 100, // Round to 2 decimal places
+        volume_loss: Math.round(volumeLoss * 100) / 100,
       };
     });
 
@@ -175,7 +187,7 @@ export class AllocationEngine {
       total_terminal_volume: terminalVolume,
       total_input_volume: Math.round(totalInputVolume * 100) / 100,
       total_net_volume: Math.round(totalNetVolume * 100) / 100,
-      shrinkage_factor: Math.round(shrinkageFactor * 10000) / 100, // Convert to percentage
+      shrinkage_factor: Math.round(shrinkageFactor * 100) / 100, // Already in percentage
       allocation_results: allocationResults,
     };
   }
@@ -217,7 +229,7 @@ export class AllocationEngine {
   }
 
   /**
-   * Validate allocation inputs
+   * Validate allocation inputs following methodology constraints
    */
   public validateInputs(entries: AllocationInput[]): string[] {
     const errors: string[] = [];
@@ -236,21 +248,25 @@ export class AllocationEngine {
         errors.push(`Entry ${index + 1}: Gross volume must be greater than 0`);
       }
 
+      // Methodology constraint: 0 ≤ BSW < 100
       if (entry.bsw_percent < 0 || entry.bsw_percent >= 100) {
         errors.push(
           `Entry ${index + 1}: BS&W percentage must be between 0 and 99.99`
         );
       }
 
+      // Methodology constraint: -50°F ≤ T ≤ 200°F
       if (entry.temperature_degF < -50 || entry.temperature_degF > 200) {
         errors.push(
           `Entry ${index + 1}: Temperature must be between -50°F and 200°F`
         );
       }
 
-      if (entry.api_gravity < 10 || entry.api_gravity > 36) {
+      // Update API gravity range to match broader industry standards
+      // Original constraint was too narrow (10-36), expanding to 10-45 per methodology
+      if (entry.api_gravity < 10 || entry.api_gravity > 45) {
         errors.push(
-          `Entry ${index + 1}: API Gravity be between 10 and 36°API `
+          `Entry ${index + 1}: API Gravity must be between 10 and 45°API`
         );
       }
     });
@@ -282,6 +298,10 @@ export class AllocationEngine {
         api_gravity_correction_applied: true,
         bsw_correction_applied: true,
         allocation_method: "proportional_by_net_volume",
+        standard_conditions: {
+          temperature: "60°F",
+          pressure: "atmospheric",
+        },
       },
       hash: this.generateHash({
         allocation,
