@@ -1149,12 +1149,14 @@ const ProductionDashboard: React.FC = () => {
                 icon={Thermometer}
               />
               <SummaryCard
-                title="Total Entries"
-                value={
-                  userData?.role === "jv_coordinator"
-                    ? allProductionData.length
-                    : filteredData.length
-                }
+                title="Average API Gravity"
+                value={calculations.averageGravity.toFixed(0)}
+                unit="°API"
+                // value={
+                //   userData?.role === "jv_coordinator"
+                //     ? allProductionData.length
+                //     : filteredData.length
+                // }
                 color="purple"
                 icon={Database}
                 // trend={{ value: 8.2, isPositive: true }}

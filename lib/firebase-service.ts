@@ -775,7 +775,6 @@ export class FirebaseService {
             )})`
         );
       }
-
       const batch = writeBatch(db);
       const now = new Date();
 
@@ -801,78 +800,101 @@ export class FirebaseService {
         );
       }
 
-      // Calculate total terminal volume for the period
+      // Calculate total terminal volume for the period (this is what we're distributing)
       const totalTerminalVolume = terminalReceipts.reduce(
         (sum, receipt) => sum + receipt.final_volume_bbl,
         0
       );
 
-      // Group production entries by partner (company) for the entire period
+      // Calculate weighted average terminal API gravity
+      const weightedAPIGravity =
+        terminalReceipts.reduce(
+          (sum, receipt) =>
+            (sum + (receipt.api_gravity as number)) * receipt.final_volume_bbl,
+          0
+        ) / totalTerminalVolume;
+
+      // Group production entries by partner and calculate totals
       const partnerTotals = new Map<
         string,
         {
           totalGrossVolume: number;
-          totalNetVolume: number;
-          entryCount: number;
           entries: ProductionEntry[];
+          weightedBSW: number;
+          weightedTemp: number;
+          weightedAPI: number;
         }
       >();
 
-      // Calculate totals per partner for the entire period
+      // STEP 1: Aggregate partner data (GROSS volumes only)
       productionEntries.forEach((entry) => {
         const partner = entry.partner;
         if (!partnerTotals.has(partner)) {
           partnerTotals.set(partner, {
             totalGrossVolume: 0,
-            totalNetVolume: 0,
-            entryCount: 0,
             entries: [],
+            weightedBSW: 0,
+            weightedTemp: 0,
+            weightedAPI: 0,
           });
         }
 
         const partnerData = partnerTotals.get(partner)!;
-
-        // Calculate net volume using allocation engine for each entry
-        const allocationInput = {
-          partner: entry.partner,
-          gross_volume_bbl: entry.gross_volume_bbl,
-          bsw_percent: entry.bsw_percent,
-          temperature_degF: entry.temperature_degF,
-          api_gravity: entry.api_gravity,
-        };
-
-        // Use allocation engine to get corrected volume
-        const tempAllocation = this.allocationEngine.calculateAllocation(
-          [allocationInput],
-          { ...terminalReceipts[0], final_volume_bbl: entry.gross_volume_bbl } // Use gross as terminal for individual calculation
-        );
-
-        const netVolume = tempAllocation.total_net_volume;
-
         partnerData.totalGrossVolume += entry.gross_volume_bbl;
-        partnerData.totalNetVolume += netVolume;
-        partnerData.entryCount += 1;
         partnerData.entries.push(entry);
       });
 
-      // Calculate total net volume across all partners
-      let totalNetVolumeAllPartners = 0;
-      let totalGrossVolumeAllPartners = 0;
-
+      // STEP 2: Calculate weighted averages for each partner
       for (const [partner, data] of partnerTotals) {
-        totalNetVolumeAllPartners += data.totalNetVolume;
+        let totalVolume = 0;
+        let weightedBSW = 0;
+        let weightedTemp = 0;
+        let weightedAPI = 0;
+
+        data.entries.forEach((entry) => {
+          const volume = entry.gross_volume_bbl;
+          totalVolume += volume;
+          weightedBSW += entry.bsw_percent * volume;
+          weightedTemp += entry.temperature_degF * volume;
+          weightedAPI += entry.api_gravity * volume;
+        });
+
+        data.weightedBSW = weightedBSW / totalVolume;
+        data.weightedTemp = weightedTemp / totalVolume;
+        data.weightedAPI = weightedAPI / totalVolume;
+      }
+
+      // Calculate totals
+      let totalGrossVolumeAllPartners = 0;
+      for (const [partner, data] of partnerTotals) {
         totalGrossVolumeAllPartners += data.totalGrossVolume;
       }
 
-      // Calculate shrinkage factor based on net volume vs actual terminal volume
-      const shrinkageFactor =
-        totalNetVolumeAllPartners > 0
-          ? ((totalNetVolumeAllPartners - totalTerminalVolume) /
-              totalNetVolumeAllPartners) *
-            100
-          : 0;
+      // STEP 3: Calculate corrected volumes for percentage calculation
+      let totalCorrectedVolume = 0;
+      const correctedVolumes = new Map<string, number>();
 
-      // Back-allocate terminal volume to each partner proportionally
+      for (const [partner, data] of partnerTotals) {
+        // Create representative allocation input for this partner
+        const representativeInput = {
+          partner: partner,
+          gross_volume_bbl: data.totalGrossVolume,
+          bsw_percent: data.weightedBSW,
+          temperature_degF: data.weightedTemp,
+          api_gravity: data.weightedAPI,
+        };
+
+        // Calculate net volume using methodology corrections
+        const netVolume = this.allocationEngine.calculateNetVolume(
+          representativeInput,
+          weightedAPIGravity
+        );
+
+        correctedVolumes.set(partner, netVolume);
+        totalCorrectedVolume += netVolume;
+      }
+
+      // STEP 4: Back-allocate terminal volume proportionally based on corrected volumes
       const allocationResults: Array<{
         partner: string;
         input_volume: number;
@@ -882,28 +904,177 @@ export class FirebaseService {
         volume_loss: number;
       }> = [];
 
+      // Maximum efficiency allowed (99.999%)
+      const MAX_EFFICIENCY = 0.99999;
+      let excessVolume = 0; // Track volume taken away from over-efficient partners
+
       for (const [partner, data] of partnerTotals) {
-        // Calculate partner's percentage of total net volume
-        const partnerPercentage =
-          totalNetVolumeAllPartners > 0
-            ? (data.totalNetVolume / totalNetVolumeAllPartners) * 100
+        const correctedVolume = correctedVolumes.get(partner)!;
+
+        // Calculate initial percentage based on corrected volume
+        const percentage =
+          totalCorrectedVolume > 0
+            ? (correctedVolume / totalCorrectedVolume) * 100
             : 0;
 
-        // Back-allocate from actual terminal volume
-        const allocatedVolume = (partnerPercentage / 100) * totalTerminalVolume;
+        // Calculate initial allocation from terminal volume
+        const rawAllocatedVolume = (percentage / 100) * totalTerminalVolume;
 
-        // Calculate volume loss for this partner
-        const volumeLoss = data.totalGrossVolume - allocatedVolume;
+        // ✅ CRITICAL FIX: Cap allocation at 99.999% of gross input
+        const maxAllowedAllocation = data.totalGrossVolume * MAX_EFFICIENCY;
+        const cappedAllocatedVolume = Math.min(
+          rawAllocatedVolume,
+          maxAllowedAllocation
+        );
+
+        // Track excess volume that was capped
+        if (rawAllocatedVolume > maxAllowedAllocation) {
+          excessVolume += rawAllocatedVolume - maxAllowedAllocation;
+          console.log(
+            `Partner ${partner} capped from ${rawAllocatedVolume.toFixed(
+              2
+            )} to ${cappedAllocatedVolume.toFixed(2)} bbl`
+          );
+        }
+
+        // Calculate volume loss (should always be positive in back-allocation)
+        const volumeLoss = data.totalGrossVolume - cappedAllocatedVolume;
 
         allocationResults.push({
           partner: partner,
           input_volume: data.totalGrossVolume,
-          net_volume: data.totalNetVolume,
-          allocated_volume: Math.round(allocatedVolume * 100) / 100,
-          percentage: Math.round(partnerPercentage * 100) / 100,
+          net_volume: correctedVolume,
+          allocated_volume: Math.round(cappedAllocatedVolume * 100) / 100,
+          percentage: Math.round(percentage * 100) / 100,
           volume_loss: Math.round(volumeLoss * 100) / 100,
         });
       }
+
+      // STEP 5: Redistribute excess volume proportionally among partners who weren't capped
+      if (excessVolume > 0.01) {
+        // Only if significant excess
+        console.log(
+          `Redistributing ${excessVolume.toFixed(2)} bbl excess volume`
+        );
+
+        // Find partners who can still receive additional volume (not at max efficiency)
+        const eligiblePartners = allocationResults.filter(
+          (result) =>
+            result.allocated_volume < result.input_volume * MAX_EFFICIENCY
+        );
+
+        if (eligiblePartners.length > 0) {
+          // Calculate total remaining capacity
+          const totalRemainingCapacity = eligiblePartners.reduce(
+            (sum, partner) => {
+              const maxCapacity = partner.input_volume * MAX_EFFICIENCY;
+              return sum + (maxCapacity - partner.allocated_volume);
+            },
+            0
+          );
+
+          // Redistribute excess proportionally
+          eligiblePartners.forEach((partner) => {
+            const maxCapacity = partner.input_volume * MAX_EFFICIENCY;
+            const remainingCapacity = maxCapacity - partner.allocated_volume;
+            const redistributionShare =
+              (remainingCapacity / totalRemainingCapacity) * excessVolume;
+
+            partner.allocated_volume += redistributionShare;
+            partner.volume_loss -= redistributionShare;
+
+            // Ensure we don't exceed max efficiency due to floating point errors
+            if (
+              partner.allocated_volume >
+              partner.input_volume * MAX_EFFICIENCY
+            ) {
+              partner.allocated_volume = partner.input_volume * MAX_EFFICIENCY;
+              partner.volume_loss =
+                partner.input_volume - partner.allocated_volume;
+            }
+
+            // Round to 2 decimal places
+            partner.allocated_volume =
+              Math.round(partner.allocated_volume * 100) / 100;
+            partner.volume_loss = Math.round(partner.volume_loss * 100) / 100;
+          });
+        }
+      }
+
+      // STEP 6: Final adjustment to ensure total matches terminal volume exactly
+      const totalAllocated = allocationResults.reduce(
+        (sum, result) => sum + result.allocated_volume,
+        0
+      );
+      const totalDifference = totalTerminalVolume - totalAllocated;
+
+      if (Math.abs(totalDifference) > 0.01) {
+        console.log(
+          `Final adjustment needed: ${totalDifference.toFixed(2)} bbl`
+        );
+
+        // Apply small adjustment to the partner with the largest allocation who can accommodate it
+        const adjustablePartner = allocationResults
+          .filter(
+            (partner) =>
+              partner.allocated_volume < partner.input_volume * MAX_EFFICIENCY
+          )
+          .sort((a, b) => b.allocated_volume - a.allocated_volume)[0];
+
+        if (adjustablePartner) {
+          const maxAdditional =
+            adjustablePartner.input_volume * MAX_EFFICIENCY -
+            adjustablePartner.allocated_volume;
+          const adjustment = Math.min(totalDifference, maxAdditional);
+
+          adjustablePartner.allocated_volume += adjustment;
+          adjustablePartner.volume_loss -= adjustment;
+
+          adjustablePartner.allocated_volume =
+            Math.round(adjustablePartner.allocated_volume * 100) / 100;
+          adjustablePartner.volume_loss =
+            Math.round(adjustablePartner.volume_loss * 100) / 100;
+        }
+      }
+
+      // Calculate shrinkage factor
+      const shrinkageFactor =
+        totalCorrectedVolume > 0
+          ? ((totalCorrectedVolume - totalTerminalVolume) /
+              totalCorrectedVolume) *
+            100
+          : 0;
+
+      // ✅ FINAL VALIDATION: Ensure no partner exceeds 99.999% efficiency
+      for (const result of allocationResults) {
+        const efficiency =
+          (result.allocated_volume / result.input_volume) * 100;
+        if (efficiency > 99.999) {
+          console.error(
+            `CRITICAL ERROR: Partner ${
+              result.partner
+            } still has efficiency ${efficiency.toFixed(3)}%`
+          );
+          // Force correction
+          result.allocated_volume = result.input_volume * MAX_EFFICIENCY;
+          result.volume_loss = result.input_volume - result.allocated_volume;
+          result.allocated_volume =
+            Math.round(result.allocated_volume * 100) / 100;
+          result.volume_loss = Math.round(result.volume_loss * 100) / 100;
+        }
+      }
+
+      // Log final results for debugging
+      console.log("=== FINAL ALLOCATION RESULTS ===");
+      allocationResults.forEach((result) => {
+        const efficiency =
+          (result.allocated_volume / result.input_volume) * 100;
+        console.log(
+          `${result.partner}: ${efficiency.toFixed(
+            3
+          )}% efficiency (${result.allocated_volume.toLocaleString()} / ${result.input_volume.toLocaleString()})`
+        );
+      });
 
       // Create reconciliation run with period information
       const reconciliationRef = doc(collection(db, "reconciliation_runs"));
@@ -912,18 +1083,18 @@ export class FirebaseService {
       const reconciliationRun: Omit<ReconciliationRun, "id"> = {
         total_terminal_volume: Math.round(totalTerminalVolume * 100) / 100,
         total_input_volume: Math.round(totalGrossVolumeAllPartners * 100) / 100,
-        total_net_volume: Math.round(totalNetVolumeAllPartners * 100) / 100,
+        total_net_volume: Math.round(totalCorrectedVolume * 100) / 100,
         shrinkage_factor: Math.round(shrinkageFactor * 100) / 100,
-        start_date: periodStartDate, // Add start date
-        end_date: periodEndDate, // Add end date
-        timestamp: now, // When reconciliation was run
+        start_date: periodStartDate,
+        end_date: periodEndDate,
+        timestamp: now,
         status: "completed",
         triggered_by: triggeredBy,
         created_at: now,
         hash: this.allocationEngine.generateHash({
           total_terminal_volume: totalTerminalVolume,
           total_input_volume: totalGrossVolumeAllPartners,
-          total_net_volume: totalNetVolumeAllPartners,
+          total_net_volume: totalCorrectedVolume,
           shrinkage_factor: shrinkageFactor,
           start_date: periodStartDate.toISOString(),
           end_date: periodEndDate.toISOString(),
@@ -948,9 +1119,9 @@ export class FirebaseService {
           allocated_volume: result.allocated_volume,
           percentage: result.percentage,
           volume_loss: result.volume_loss,
-          start_date: periodStartDate, // Add period info to allocations
+          start_date: periodStartDate,
           end_date: periodEndDate,
-          timestamp: periodEndDate, // When allocation was calculated
+          timestamp: periodEndDate,
           reconciliation_id: reconciliationId,
           created_at: now,
           hash: this.allocationEngine.generateHash(result),
@@ -998,7 +1169,6 @@ export class FirebaseService {
       this.handleFirebaseError(error, "Reconciliation");
     }
   }
-
   // Updated method to check for existing reconciliations in a period
   async checkExistingReconciliation(
     startDate: Date,
