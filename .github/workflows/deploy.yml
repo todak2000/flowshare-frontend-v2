@@ -33,7 +33,7 @@ jobs:
               run: gcloud auth configure-docker "europe-west1-docker.pkg.dev" --quiet
 
             # 5. Build the Docker image, passing in build-time variables
-            - name: Build Docker image
+            - name: Build Docker image 
               run: |
                   docker build \
                     --build-arg NEXT_PUBLIC_FIREBASE_API_KEY="${{ secrets.NEXT_PUBLIC_FIREBASE_API_KEY }}" \
