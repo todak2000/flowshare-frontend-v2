@@ -33,7 +33,7 @@ jobs:
               run: gcloud auth configure-docker "europe-west1-docker.pkg.dev" --quiet
 
             # 5. Build the Docker image, passing in build-time variables
-            - name: Build Docker image 
+            - name: Build Docker image
               run: |
                   docker build \
                     --build-arg NEXT_PUBLIC_FIREBASE_API_KEY="${{ secrets.NEXT_PUBLIC_FIREBASE_API_KEY }}" \
@@ -60,6 +60,9 @@ jobs:
                       --max-instances=20
                       --concurrency=80
                       --allow-unauthenticated
-                  secrets:
-                      # Mount the Gemini API key secret as an environment variable
-                      GEMINI_API_KEY:gemini-api-key:latest
+                  secrets: |
+                      # Correct format: ENV_VAR_NAME=SECRET_NAME:VERSION
+                      GEMINI_API_KEY=gemini-api-key:latest
+            # 8. Output the URL of the deployed service
+            - name: Show Deployed URL
+              run: echo "Service deployed to ${{ steps.deploy.outputs.url }}"
