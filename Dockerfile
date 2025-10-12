@@ -17,6 +17,15 @@ RUN \
 # Copy source
 COPY . .
 
+# Set dummy environment variables for build (real values injected at runtime)
+ENV NEXT_PUBLIC_FIREBASE_API_KEY=dummy_build_key
+ENV NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=dummy.firebaseapp.com
+ENV NEXT_PUBLIC_FIREBASE_PROJECT_ID=dummy-project
+ENV NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=dummy.appspot.com
+ENV NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=123456789
+ENV NEXT_PUBLIC_FIREBASE_APP_ID=1:123456789:web:dummy
+ENV GEMINI_API_KEY=dummy_gemini_key
+
 # Build
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV NODE_ENV=production

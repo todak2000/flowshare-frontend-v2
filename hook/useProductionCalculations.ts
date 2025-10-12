@@ -7,7 +7,6 @@ export const useProductionCalculations = (
 ) => {
   const calculations = useMemo(() => {
     // Summary calculations
-    console.log(filteredData[0], '2342343')
     const totalVolume = filteredData.reduce(
       (sum, item) => sum + item.gross_volume_bbl,
       0

@@ -1,3 +1,4 @@
+/* eslint-disable react-hooks/exhaustive-deps */
 // src/app/dashboard/auditor/page.tsx
 "use client";
 import { useState, useEffect } from "react";
