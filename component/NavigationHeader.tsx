@@ -18,6 +18,7 @@ import {
   X,
   Hamburger,
   Menu,
+  Sparkles,
 } from "lucide-react";
 import { Permission, UserRole } from "../types";
 import { COLORS } from "./Home";
@@ -67,6 +68,12 @@ const getNavigationItems = (
         icon: BarChart3,
         active: currentPath.includes("/production"),
       },
+      {
+        label: "AI Insights",
+        href: "/ai-insights",
+        icon: Sparkles,
+        active: currentPath.includes("/ai-insights"),
+      },
     ],
     jv_coordinator: [
       {
@@ -74,6 +81,12 @@ const getNavigationItems = (
         href: "/production",
         icon: BarChart3,
         active: currentPath.includes("/production"),
+      },
+      {
+        label: "AI Insights",
+        href: "/ai-insights",
+        icon: Sparkles,
+        active: currentPath.includes("/ai-insights"),
       },
       {
         label: "Reconciliation",
@@ -96,6 +109,12 @@ const getNavigationItems = (
         active: currentPath.includes("/production"),
       },
       {
+        label: "AI Insights",
+        href: "/ai-insights",
+        icon: Sparkles,
+        active: currentPath.includes("/ai-insights"),
+      },
+      {
         label: "Reconciliation",
         href: "/reconciliation",
         icon: Shield,
@@ -108,6 +127,12 @@ const getNavigationItems = (
         href: "/production",
         icon: BarChart3,
         active: currentPath.includes("/production"),
+      },
+      {
+        label: "AI Insights",
+        href: "/ai-insights",
+        icon: Sparkles,
+        active: currentPath.includes("/ai-insights"),
       },
       {
         label: "Reconciliation",
