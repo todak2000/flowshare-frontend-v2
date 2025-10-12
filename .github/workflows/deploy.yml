@@ -63,7 +63,6 @@ jobs:
                       --concurrency=80
                       --allow-unauthenticated
                   secrets: |
-                      # Correct format: ENV_VAR_NAME=SECRET_NAME:VERSION
                       GEMINI_API_KEY=gemini-api-key:latest
             # 8. Output the URL of the deployed service
             - name: Show Deployed URL
