@@ -346,9 +346,6 @@ const JVCoordinatorDashboard: React.FC = () => {
       startDate: formatDateForInput(firstDayOfMonth),
       endDate: formatDateForInput(lastDayOfMonth),
     });
-  const [reconcileDate, setReconcileDate] = useState(
-    formatDateForInput(new Date())
-  );
 
   useEffect(() => {
     if (!userLoading && !auth) {
@@ -454,16 +451,6 @@ const JVCoordinatorDashboard: React.FC = () => {
     return new Date(run.created_at) >= weekAgo;
   });
 
-  const averageShrinkage =
-    reconciliationRuns.length > 0
-      ? (reconciliationRuns.reduce(
-          (sum, run) => sum + (1 - run.shrinkage_factor),
-          0
-        ) /
-          reconciliationRuns.length) *
-        100
-      : 0;
-
   if (userLoading) {
     return (
       <div
@@ -544,7 +531,7 @@ const JVCoordinatorDashboard: React.FC = () => {
           <DataTable
             title="Recent Terminal Receipts"
             icon={Terminal}
-            data={terminalReceipts?.slice(0,5)}
+            data={terminalReceipts?.slice(0, 5)}
             columns={["Date", "Final Volume", "Temperature", "Status"]}
             loading={loading}
             emptyMessage="No terminal receipts recorded yet."
@@ -589,7 +576,7 @@ const JVCoordinatorDashboard: React.FC = () => {
           <DataTable
             title="Recent Reconciliation Runs"
             icon={RefreshCw}
-            data={reconciliationRuns.slice(0,5)}
+            data={reconciliationRuns.slice(0, 5)}
             columns={["Date", "Terminal Volume", "Shrinkage", "Status"]}
             loading={loading}
             emptyMessage="No reconciliation runs yet."

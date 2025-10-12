@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 import React, { useState, useEffect } from "react";
@@ -8,7 +9,6 @@ import {
   Calendar,
   BarChart3,
   TrendingUp,
-  TrendingDown,
   Calculator,
   CheckCircle,
   Clock,
@@ -58,10 +58,6 @@ interface ReconciliationDateRange {
   startDate: string;
   endDate: string;
 }
-
-const formatDateRange = (startDate: Date, endDate: Date): string => {
-  return `${startDate.toLocaleDateString()} - ${endDate.toLocaleDateString()}`;
-};
 
 // Reusable Components
 interface SummaryCardProps {
@@ -483,11 +479,7 @@ const ReconciliationPage: React.FC = () => {
     (sum, run) => sum + run.total_terminal_volume,
     0
   );
-  const averageShrinkage =
-    reconciliationRuns.length > 0
-      ? reconciliationRuns.reduce((sum, run) => sum + run.shrinkage_factor, 0) /
-        reconciliationRuns.length
-      : 0;
+
   const completedRuns = reconciliationRuns.filter(
     (run) => run.status === "completed"
   ).length;

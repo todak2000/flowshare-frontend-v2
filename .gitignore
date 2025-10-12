@@ -10,6 +10,7 @@
 !.yarn/releases
 !.yarn/versions
 credentials.json
+deploy-to-cloudrun.sh
 # testing
 /coverage
 
