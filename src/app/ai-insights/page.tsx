@@ -3,6 +3,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import ReactMarkdown from 'react-markdown';
 import {
   Sparkles,
   MessageSquare,
@@ -12,7 +13,9 @@ import {
   Activity,
   Zap,
   ChevronRight,
-  Lightbulb
+  Lightbulb,
+  Calendar,
+  CalendarRange
 } from 'lucide-react';
 import { COLORS } from '../../../component/Home';
 import { useUser } from '../../../hook/useUser';
@@ -38,6 +41,14 @@ interface Prediction {
   trend: 'increasing' | 'stable' | 'decreasing';
 }
 
+type DateRangePreset = 'current_month' | 'last_month' | 'last_2_months' | 'last_6_months' | 'last_year' | 'ytd' | 'custom';
+
+interface DateRange {
+  startDate: Date;
+  endDate: Date;
+  label: string;
+}
+
 export default function AIInsights() {
   const { data: userData, loading: userLoading } = useUser();
   const [query, setQuery] = useState('');
@@ -48,28 +59,102 @@ export default function AIInsights() {
   const [loading, setLoading] = useState(false);
   const [activeTab, setActiveTab] = useState<'query' | 'anomalies' | 'predictions' | 'insights'>('query');
   const [productionData, setProductionData] = useState<any[]>([]);
+  const [selectedPreset, setSelectedPreset] = useState<DateRangePreset>('current_month');
+  const [dateRange, setDateRange] = useState<DateRange>(() => {
+    const now = new Date();
+    const firstDayOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    const lastDayOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+    lastDayOfMonth.setHours(23, 59, 59, 999);
+    return {
+      startDate: firstDayOfMonth,
+      endDate: lastDayOfMonth,
+      label: 'Current Month'
+    };
+  });
+  const [showCustomDatePicker, setShowCustomDatePicker] = useState(false);
 
-  // Load production data on mount
+  // Helper function to calculate date ranges
+  const calculateDateRange = (preset: DateRangePreset): DateRange => {
+    const now = new Date();
+    const endDate = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+    endDate.setHours(23, 59, 59, 999);
+
+    let startDate: Date;
+    let label: string;
+
+    switch (preset) {
+      case 'current_month':
+        startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+        label = 'Current Month';
+        break;
+      case 'last_month':
+        startDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+        endDate.setMonth(now.getMonth(), 0);
+        endDate.setHours(23, 59, 59, 999);
+        label = 'Last Month';
+        break;
+      case 'last_2_months':
+        startDate = new Date(now.getFullYear(), now.getMonth() - 2, 1);
+        label = 'Last 2 Months';
+        break;
+      case 'last_6_months':
+        startDate = new Date(now.getFullYear(), now.getMonth() - 6, 1);
+        label = 'Last 6 Months';
+        break;
+      case 'last_year':
+        startDate = new Date(now.getFullYear() - 1, now.getMonth(), 1);
+        label = 'Last 12 Months';
+        break;
+      case 'ytd':
+        startDate = new Date(now.getFullYear(), 0, 1);
+        label = 'Year to Date';
+        break;
+      default:
+        startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+        label = 'Custom Range';
+    }
+
+    return { startDate, endDate, label };
+  };
+
+  const handlePresetChange = (preset: DateRangePreset) => {
+    setSelectedPreset(preset);
+    if (preset === 'custom') {
+      setShowCustomDatePicker(true);
+    } else {
+      setShowCustomDatePicker(false);
+      setDateRange(calculateDateRange(preset));
+    }
+  };
+
+  const handleCustomDateChange = (start: string, end: string) => {
+    const startDate = new Date(start);
+    const endDate = new Date(end);
+    endDate.setHours(23, 59, 59, 999);
+    setDateRange({
+      startDate,
+      endDate,
+      label: `${startDate.toLocaleDateString()} - ${endDate.toLocaleDateString()}`
+    });
+  };
+
+  // Load production data on mount and when date range changes
   useEffect(() => {
     if (userData?.company) {
       loadProductionData();
     }
-  }, [userData]);
+  }, [userData, dateRange]);
 
   const loadProductionData = async () => {
     try {
       const partnerId = userData?.role === 'jv_coordinator' ? undefined : userData?.company;
-      const now = new Date();
-      const firstDayOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-      const lastDayOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-      lastDayOfMonth.setHours(23, 59, 59, 999);
 
       const result = await firebaseService.getAllProductionEntriesForPeriod(
         partnerId,
-        firstDayOfMonth,
-        lastDayOfMonth
+        dateRange.startDate,
+        dateRange.endDate
       );
-console.log(result, 'terwesad')
+      console.log(result, 'production data for period:', dateRange.label);
       setProductionData(result);
     } catch (error) {
       console.error('Error loading production data:', error);
@@ -148,7 +233,7 @@ console.log(result, 'terwesad')
         partners: [...new Set(productionData.map(e => e.partner))],
         total_volume: productionData.reduce((sum, e) => sum + e.gross_volume_bbl, 0),
         data_quality_score: 95,
-        period: 'Current Month'
+        period: dateRange.label
       };
 
       const result = await geminiService.generateInsights(allocationData);
@@ -218,6 +303,92 @@ console.log(result, 'terwesad')
                 <span>Powered by Google Gemini 1.5 Pro</span>
                 <Zap className="w-4 h-4 text-yellow-400" />
               </p>
+            </div>
+          </div>
+
+          {/* Date Range Selector */}
+          <div className={`${COLORS.background.card} backdrop-blur-xl ${COLORS.border.light} border rounded-2xl p-6 mt-6`}>
+            <div className="flex items-center space-x-3 mb-4">
+              <CalendarRange className={`w-5 h-5 ${COLORS.primary.blue[400]}`} />
+              <h3 className={`text-lg font-semibold ${COLORS.text.primary}`}>
+                Analysis Period
+              </h3>
+            </div>
+
+            {/* Preset Buttons */}
+            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-3 mb-4">
+              {[
+                { value: 'current_month' as DateRangePreset, label: 'Current Month' },
+                { value: 'last_month' as DateRangePreset, label: 'Last Month' },
+                { value: 'last_2_months' as DateRangePreset, label: 'Last 2 Months' },
+                { value: 'last_6_months' as DateRangePreset, label: 'Last 6 Months' },
+                { value: 'last_year' as DateRangePreset, label: 'Last Year' },
+                { value: 'ytd' as DateRangePreset, label: 'Year to Date' },
+                { value: 'custom' as DateRangePreset, label: 'Custom Range' }
+              ].map((preset) => (
+                <button
+                  key={preset.value}
+                  onClick={() => handlePresetChange(preset.value)}
+                  className={`px-4 py-2 rounded-xl text-sm font-medium transition-all duration-300 ${
+                    selectedPreset === preset.value
+                      ? `bg-gradient-to-r ${COLORS.primary.blue[600]} ${COLORS.primary.purple[600]} text-white shadow-lg`
+                      : `${COLORS.background.glass} ${COLORS.text.secondary} hover:${COLORS.text.primary} hover:${COLORS.background.glassHover} ${COLORS.border.light} border`
+                  }`}
+                >
+                  {preset.label}
+                </button>
+              ))}
+            </div>
+
+            {/* Custom Date Picker */}
+            {showCustomDatePicker && (
+              <div className={`p-4 ${COLORS.background.glass} rounded-xl ${COLORS.border.light} border`}>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className={`block text-sm font-medium ${COLORS.text.primary} mb-2`}>
+                      Start Date
+                    </label>
+                    <input
+                      type="date"
+                      defaultValue={dateRange.startDate.toISOString().split('T')[0]}
+                      onChange={(e) => {
+                        const endInput = document.querySelector('input[type="date"]:nth-of-type(2)') as HTMLInputElement;
+                        if (endInput?.value) {
+                          handleCustomDateChange(e.target.value, endInput.value);
+                        }
+                      }}
+                      className={`w-full px-4 py-2 ${COLORS.background.glass} backdrop-blur-sm ${COLORS.border.light} border rounded-xl ${COLORS.text.primary} focus:outline-none focus:ring-2 focus:ring-blue-500`}
+                    />
+                  </div>
+                  <div>
+                    <label className={`block text-sm font-medium ${COLORS.text.primary} mb-2`}>
+                      End Date
+                    </label>
+                    <input
+                      type="date"
+                      defaultValue={dateRange.endDate.toISOString().split('T')[0]}
+                      onChange={(e) => {
+                        const startInput = document.querySelector('input[type="date"]:first-of-type') as HTMLInputElement;
+                        if (startInput?.value) {
+                          handleCustomDateChange(startInput.value, e.target.value);
+                        }
+                      }}
+                      className={`w-full px-4 py-2 ${COLORS.background.glass} backdrop-blur-sm ${COLORS.border.light} border rounded-xl ${COLORS.text.primary} focus:outline-none focus:ring-2 focus:ring-blue-500`}
+                    />
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Selected Date Range Display */}
+            <div className={`mt-4 p-3 ${COLORS.background.glass} rounded-xl flex items-center justify-between`}>
+              <div className="flex items-center space-x-2">
+                <Calendar className={`w-4 h-4 ${COLORS.primary.blue[400]}`} />
+                <span className={`text-sm ${COLORS.text.secondary}`}>Selected Period:</span>
+              </div>
+              <span className={`text-sm font-medium ${COLORS.text.primary}`}>
+                {dateRange.label}
+              </span>
             </div>
           </div>
 
@@ -350,7 +521,8 @@ console.log(result, 'terwesad')
                       <span>AI Answer:</span>
                     </h3>
                     <div className={`${COLORS.text.secondary} whitespace-pre-wrap`}>
-                      {answer}
+                      
+                      <ReactMarkdown>{answer}</ReactMarkdown>
                     </div>
                   </div>
                 )}
@@ -543,11 +715,8 @@ console.log(result, 'terwesad')
                     </p>
                   </div>
                 ) : (
-                  <div className={`p-6 ${COLORS.background.glass} rounded-xl ${COLORS.border.light} border prose prose-invert max-w-none`}>
-                    <div
-                      className={`${COLORS.text.secondary} markdown-content`}
-                      dangerouslySetInnerHTML={{ __html: insights.replace(/\n/g, '<br />') }}
-                    />
+                  <div className={`p-6 ${COLORS.background.glass} ${COLORS.text.secondary} rounded-xl ${COLORS.border.light} border prose prose-invert max-w-none markdown-content`}>
+                  <ReactMarkdown>{insights}</ReactMarkdown>
                   </div>
                 )}
               </div>
