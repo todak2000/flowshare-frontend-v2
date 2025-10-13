@@ -1,32 +1,12 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { GoogleGenAI } from "@google/genai";
+import { GoogleGenerativeAI } from "@google/generative-ai";
 
 // Initialize Gemini AI
-const genAI = new GoogleGenAI({
-  apiKey: process.env.NEXT_PUBLIC_GEMINI_API_KEY || "",
-});
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || process.env.NEXT_PUBLIC_GEMINI_API_KEY || '');
 
 export class GeminiService {
-  async generateContent(content: string) {
-    const model = genAI.models.generateContent({
-      model: "gemini-2.5-flash",
-      contents: content,
-    });
-
-    return model;
-  }
-
-  /**
-   * Extract text from Gemini response
-   */
-  private extractText(result: any): string {
-    try {
-      return result?.candidates?.[0]?.content?.parts?.[0]?.text || "";
-    } catch (error) {
-      console.error("Failed to extract text from response:", error);
-      return "";
-    }
-  }
+  private model = genAI.getGenerativeModel({ model: "gemini-1.5-pro" });
+  private flashModel = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
 
   /**
    * Answer natural language questions about production data
@@ -50,17 +30,12 @@ Provide a clear, concise answer that:
 Keep your response under 200 words and be specific.
 `;
 
-      const result = await this.generateContent(prompt);
-      const text = this.extractText(result);
-      
-      if (!text) {
-        return "Sorry, I couldn't generate a response. Please try again.";
-      }
-      
-      return text;
+      const result = await this.model.generateContent(prompt);
+      const response = await result.response;
+      return response.text();
     } catch (error) {
-      console.error("Gemini query error:", error);
-      return "Sorry, I encountered an error processing your query. Please try again.";
+      console.error('Gemini query error:', error);
+      return 'Sorry, I encountered an error processing your query. Please try again.';
     }
   }
 
@@ -107,16 +82,11 @@ For EACH anomaly found, return JSON array with:
 Return ONLY the JSON array, no other text.
 `;
 
-      const result = await this.generateContent(prompt);
-      const text = this.extractText(result);
-      
-      if (!text) {
-        return [];
-      }
-      
-      return this.parseJSON(text);
+      const result = await this.flashModel.generateContent(prompt);
+      const response = await result.response;
+      return this.parseJSON(response.text());
     } catch (error) {
-      console.error("Anomaly detection error:", error);
+      console.error('Anomaly detection error:', error);
       return [];
     }
   }
@@ -159,17 +129,12 @@ Format your response in clean Markdown with clear headers and bullet points.
 Keep it professional and actionable.
 `;
 
-      const result = await this.generateContent(prompt);
-      const text = this.extractText(result);
-      
-      if (!text) {
-        return "Unable to generate insights at this time. Please try again later.";
-      }
-      
-      return text;
+      const result = await this.model.generateContent(prompt);
+      const response = await result.response;
+      return response.text();
     } catch (error) {
-      console.error("Insights generation error:", error);
-      return "Unable to generate insights at this time. Please try again later.";
+      console.error('Insights generation error:', error);
+      return 'Unable to generate insights at this time. Please try again later.';
     }
   }
 
@@ -182,7 +147,7 @@ Keep it professional and actionable.
         return {
           predictions: [],
           confidence: 0,
-          message: "Insufficient data for predictions",
+          message: 'Insufficient data for predictions'
         };
       }
 
@@ -219,24 +184,15 @@ Return JSON format:
 Return ONLY valid JSON, no markdown formatting.
 `;
 
-      const result = await this.generateContent(prompt);
-      const text = this.extractText(result);
-      
-      if (!text) {
-        return {
-          predictions: [],
-          confidence: 0,
-          message: "Unable to generate predictions",
-        };
-      }
-      
-      return this.parseJSON(text);
+      const result = await this.model.generateContent(prompt);
+      const response = await result.response;
+      return this.parseJSON(response.text());
     } catch (error) {
-      console.error("Prediction error:", error);
+      console.error('Prediction error:', error);
       return {
         predictions: [],
         confidence: 0,
-        message: "Unable to generate predictions",
+        message: 'Unable to generate predictions'
       };
     }
   }
@@ -263,17 +219,12 @@ Keep the explanation simple enough for a business stakeholder to understand.
 Use analogies if helpful.
 `;
 
-      const result = await this.generateContent(prompt);
-      const text = this.extractText(result);
-      
-      if (!text) {
-        return "Unable to explain allocation at this time.";
-      }
-      
-      return text;
+      const result = await this.model.generateContent(prompt);
+      const response = await result.response;
+      return response.text();
     } catch (error) {
-      console.error("Explanation error:", error);
-      return "Unable to explain allocation at this time.";
+      console.error('Explanation error:', error);
+      return 'Unable to explain allocation at this time.';
     }
   }
 
@@ -286,14 +237,12 @@ Use analogies if helpful.
       return JSON.parse(text);
     } catch {
       // Try extracting JSON from markdown code blocks
-      const jsonMatch = text.match(
-        /```(?:json)?\s*(\{[\s\S]*?\}|\[[\s\S]*?\])\s*```/
-      );
+      const jsonMatch = text.match(/```(?:json)?\s*(\{[\s\S]*?\}|\[[\s\S]*?\])\s*```/);
       if (jsonMatch) {
         try {
           return JSON.parse(jsonMatch[1]);
         } catch (e) {
-          console.error("Failed to parse JSON from markdown:", e);
+          console.error('Failed to parse JSON from markdown:', e);
         }
       }
 
@@ -303,12 +252,12 @@ Use analogies if helpful.
         try {
           return JSON.parse(jsonObjMatch[0]);
         } catch (e) {
-          console.error("Failed to parse JSON:", e);
+          console.error('Failed to parse JSON:', e);
         }
       }
 
       // Return empty structure based on expected format
-      console.warn("Could not parse JSON, returning empty structure");
+      console.warn('Could not parse JSON, returning empty structure');
       return [];
     }
   }

@@ -16,8 +16,8 @@ AI-powered features have been successfully integrated into FlowShare using Googl
 - Allocation Explanations - Simplify complex calculations
 
 **Models Used**:
-- `gemini-1.5-pro` - For complex analysis, insights, predictions
-- `gemini-1.5-flash` - For fast real-time anomaly detection
+- `gemini-pro` - For all AI features (free tier)
+- Note: Originally designed for `gemini-1.5-pro` and `gemini-1.5-flash`, but using `gemini-pro` for free tier compatibility
 
 **Key Methods**:
 ```typescript
