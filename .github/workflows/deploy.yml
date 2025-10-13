@@ -62,7 +62,8 @@ jobs:
                       --max-instances=20
                       --concurrency=80
                       --allow-unauthenticated
-                      --set-env-vars GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }}
+                      --set-env-vars GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }},NEXT_PUBLIC_FIREBASE_API_KEY=${{ secrets.NEXT_PUBLIC_FIREBASE_API_KEY }},NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=${{ secrets.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN }},NEXT_PUBLIC_FIREBASE_PROJECT_ID=${{ secrets.NEXT_PUBLIC_FIREBASE_PROJECT_ID }},FIREBASE_PRIVATE_KEY_ID=${{ secrets.FIREBASE_PRIVATE_KEY_ID }},FIREBASE_CLIENT_ID=${{ secrets.FIREBASE_CLIENT_ID }},FIREBASE_PROJECT_ID=${{ secrets.FIREBASE_PROJECT_ID }},FIREBASE_CLIENT_EMAIL=${{ secrets.FIREBASE_CLIENT_EMAIL }},FIREBASE_PRIVATE_KEY=${{ secrets.FIREBASE_PRIVATE_KEY }},NEXT_PUBLIC_GEMINI_API_KEY=${{ secrets.NEXT_PUBLIC_GEMINI_API_KEY }}
+
             # 8. Output the URL of the deployed service
             - name: Show Deployed URL
               run: echo "Service deployed to ${{ steps.deploy.outputs.url }}"
