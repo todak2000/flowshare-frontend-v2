@@ -69,7 +69,7 @@ export default function AIInsights() {
         firstDayOfMonth,
         lastDayOfMonth
       );
-
+console.log(result, 'terwesad')
       setProductionData(result);
     } catch (error) {
       console.error('Error loading production data:', error);
@@ -322,7 +322,7 @@ export default function AIInsights() {
                   onChange={(e) => setQuery(e.target.value)}
                   placeholder="Ask anything about your production data..."
                   className={`w-full px-4 py-3 ${COLORS.background.glass} backdrop-blur-sm ${COLORS.border.light} border rounded-xl ${COLORS.text.primary} placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500`}
-                  onKeyPress={(e) => e.key === 'Enter' && askAI()}
+                  onKeyDown={(e) => e.key === 'Enter' && askAI()}
                 />
 
                 <button

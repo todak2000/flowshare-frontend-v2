@@ -62,8 +62,7 @@ jobs:
                       --max-instances=20
                       --concurrency=80
                       --allow-unauthenticated
-                  secrets: |
-                      GEMINI_API_KEY=gemini-api-key:latest
+                      --set-env-vars GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }}
             # 8. Output the URL of the deployed service
             - name: Show Deployed URL
               run: echo "Service deployed to ${{ steps.deploy.outputs.url }}"
