@@ -613,6 +613,24 @@ export class FirebaseService {
         ),
       });
 
+      // Automatically trigger reconciliation for this month
+      try {
+        console.log(`🚀 Auto-triggering reconciliation for ${inputDate.toLocaleDateString('en-US', { year: 'numeric', month: 'long' })}...`);
+
+        const reconciliationId = await this.triggerReconciliation(
+          monthStart,
+          monthEnd,
+          data.created_by
+        );
+
+        console.log(`✅ Automatic reconciliation completed! ID: ${reconciliationId}`);
+      } catch (reconciliationError: any) {
+        console.error(`⚠️ Automatic reconciliation failed: ${reconciliationError.message}`);
+        // Don't fail the terminal receipt creation if reconciliation fails
+        // Log it but continue
+        console.log('Terminal receipt created successfully, but reconciliation needs to be run manually');
+      }
+
       return docRef.id;
     } catch (error: any) {
       this.handleFirebaseError(error, "Terminal Receipt Creation");
