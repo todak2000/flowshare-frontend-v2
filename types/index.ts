@@ -15,6 +15,9 @@ export interface ProductionEntry {
   updated_at: Date;
   edited_by?: string;
   isApproved?: boolean;
+  flagged?: boolean;
+  ai_analysis?: string;
+  anomaly_score?: number;
 }
 
 export interface TerminalReceipt {
@@ -64,6 +67,8 @@ export interface ReconciliationRun {
   total_terminal_volume: number;
   total_input_volume: number;
   total_net_volume: number;
+  total_allocated_volume: number; // Sum of all partner allocations
+  total_volume_loss: number; // Sum of all partner volume losses
   shrinkage_factor: number;
   start_date: Timestamp | Date; // Period start date
   end_date: Timestamp | Date; // Period end date

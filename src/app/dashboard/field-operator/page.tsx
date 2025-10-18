@@ -27,6 +27,7 @@ import { COLORS } from "../../../../component/Home";
 import { ProductionFormData } from "../../../../component/formField";
 import { CreateProductionEntryData, ProductionEntry } from "../../../../types";
 import { formatVolume } from "../../../../utils/formatVolume";
+import { validateProductionEntry, sendNotification } from "../../../../lib/agents-api";
 
 interface FormFieldConfig {
   id: string;
@@ -315,7 +316,76 @@ const FieldOperatorDashboard: React.FC = () => {
         created_by: auth.uid,
       };
 
-      await firebaseService.createProductionEntry(submissionData);
+      // 1. Save to Firestore
+      console.log('💾 Saving production entry to Firestore...');
+      const entryId = await firebaseService.createProductionEntry(submissionData);
+      console.log(`✅ Entry saved with ID: ${entryId}`);
+
+      // 2. Validate with Auditor Agent
+      console.log('🤖 Calling Auditor Agent for validation...');
+      console.log('Auditor Agent URL:', process.env.NEXT_PUBLIC_AUDITOR_AGENT_URL || 'http://localhost:8081');
+
+      try {
+        const validationRequest = {
+          entry_id: entryId,
+          entry_data: {
+            id: entryId,
+            partner: userData.company,
+            gross_volume_bbl: parseFloat(formData.gross_volume_bbl),
+            bsw_percent: parseFloat(formData.bsw_percent),
+            temperature_degF: parseFloat(formData.temperature_degF),
+            api_gravity: parseFloat(formData.api_gravity),
+            timestamp: new Date().toISOString(),
+          },
+        };
+
+        console.log('Validation request:', JSON.stringify(validationRequest, null, 2));
+        const validationResult = await validateProductionEntry(validationRequest);
+        console.log('Validation result:', JSON.stringify(validationResult, null, 2));
+
+        // 3. Update Firestore with validation result if flagged
+        if (validationResult.flagged) {
+          await firebaseService.updateProductionEntry(entryId, {
+            flagged: true,
+            ai_analysis: validationResult.ai_analysis,
+            anomaly_score: validationResult.confidence_score,
+          });
+
+          // 4. Send notification via Communicator Agent for flagged entry
+          try {
+            await sendNotification({
+              notification_id: `notif_flagged_${entryId}`,
+              notification_data: {
+                type: 'email',
+                recipient: 'todak2000@gmail.com',
+                subject: `⚠️ Flagged Production Entry - ${userData.company}`,
+                body: `A production entry from ${userData.company} has been flagged for review.\n\nEntry ID: ${entryId}\nVolume: ${parseFloat(formData.gross_volume_bbl)} BBL\nBS&W: ${parseFloat(formData.bsw_percent)}%\nTemperature: ${parseFloat(formData.temperature_degF)}°F\nAPI Gravity: ${parseFloat(formData.api_gravity)}°\n\nAI Analysis: ${validationResult.ai_analysis || 'Anomaly detected'}\nConfidence Score: ${validationResult.confidence_score?.toFixed(2) || 'N/A'}`,
+                metadata: {
+                  entry_id: entryId,
+                  partner: userData.company,
+                  confidence_score: validationResult.confidence_score,
+                  flagged: true,
+                },
+              },
+            });
+            console.log('✅ Communicator Agent notification sent for flagged entry');
+          } catch (notificationError) {
+            console.error('❌ Error sending notification for flagged entry:', notificationError);
+            // Don't fail the entry creation if notification fails
+          }
+
+          // Show warning message
+          alert(`⚠️ Entry saved but flagged for review!\n\nAI Analysis: ${validationResult.ai_analysis || 'Anomaly detected by Auditor Agent'}\n\nConfidence Score: ${validationResult.confidence_score?.toFixed(2) || 'N/A'}\n\nAuditors have been notified.`);
+        } else {
+          // Show success message
+          alert('✅ Entry validated and saved successfully!');
+        }
+      } catch (validationError) {
+        console.error('Error validating entry with Auditor Agent:', validationError);
+        // Entry is still saved, just couldn't validate
+        alert('⚠️ Entry saved but could not be validated by Auditor Agent. Please check manually.');
+      }
+
       setShowForm(false);
       setFormData({
         temperature_degF: "",

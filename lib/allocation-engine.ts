@@ -159,26 +159,185 @@ export class AllocationEngine {
       terminalVolume
     );
 
-    // Step 4: Proportional allocation following methodology
-    // Partner Allocated Volume = Terminal Volume × (Partner Net Volume / Total Net Volume)
-    const allocationResults = netVolumes.map((entry) => {
-      // Partner Percentage = (Partner Net Volume / Total Net Volume) × 100
-      const percentage =
+    // Step 4: Proportional allocation with percentage capping and normalization
+    // Strategy: Work with percentages first, then calculate volumes from percentages
+    const MAX_PERCENTAGE = 99.99999;
+
+    // Calculate raw percentages for each partner
+    const rawAllocations = netVolumes.map((entry) => {
+      const rawPercentage =
         totalNetVolume > 0 ? (entry.net_volume / totalNetVolume) * 100 : 0;
-
-      // Partner Allocated Volume = Terminal Volume × (Partner Net Volume / Total Net Volume)
-      const allocatedVolume =
-        terminalVolume * (entry.net_volume / totalNetVolume);
-
-      // Volume Loss = Partner Gross Volume - Partner Allocated Volume
-      const volumeLoss = entry.gross_volume_bbl - allocatedVolume;
 
       return {
         partner: entry.partner,
-        input_volume: entry.gross_volume_bbl,
+        gross_volume: entry.gross_volume_bbl,
         net_volume: entry.net_volume,
-        allocated_volume: Math.round(allocatedVolume * 100) / 100,
-        percentage: Math.round(percentage * 100) / 100, // Round to 2 decimal places
+        rawPercentage,
+      };
+    });
+
+    // Cap percentages at MAX_PERCENTAGE
+    const cappedAllocations = rawAllocations.map((alloc) => ({
+      ...alloc,
+      cappedPercentage:
+        alloc.rawPercentage > MAX_PERCENTAGE
+          ? MAX_PERCENTAGE
+          : alloc.rawPercentage,
+    }));
+
+    // Normalize percentages to sum to exactly 100%
+    const totalCappedPercentage = cappedAllocations.reduce(
+      (sum, a) => sum + a.cappedPercentage,
+      0
+    );
+
+    const normalizedAllocations = cappedAllocations.map((alloc) => {
+      const normalizedPercentage =
+        totalCappedPercentage > 0
+          ? (alloc.cappedPercentage / totalCappedPercentage) * 100
+          : 0;
+
+      // Ensure no single partner exceeds the cap after normalization
+      const finalPercentage = Math.min(normalizedPercentage, MAX_PERCENTAGE);
+
+      return {
+        ...alloc,
+        finalPercentage,
+      };
+    });
+
+    // Calculate allocated volumes from final percentages
+    const volumeAllocations = normalizedAllocations.map((alloc) => ({
+      ...alloc,
+      allocatedVolume: terminalVolume * (alloc.finalPercentage / 100),
+    }));
+
+    // CRITICAL CONSTRAINT: Allocated volume CANNOT exceed 99.9% of input volume
+    // Cap each allocation at 99.9% of their input volume (ensure minimum 0.1% loss)
+    const MAX_ALLOCATION_FACTOR = 0.999; // 99.9%
+    const cappedVolumeAllocations = volumeAllocations.map((alloc) => {
+      const maxAllocation = alloc.gross_volume * MAX_ALLOCATION_FACTOR;
+      const allocatedVolume =
+        alloc.allocatedVolume > maxAllocation
+          ? maxAllocation
+          : alloc.allocatedVolume;
+
+      if (alloc.allocatedVolume > maxAllocation) {
+        console.warn(
+          `Partner ${alloc.partner} allocation exceeds 99.9% of input, capping`,
+          {
+            calculated: alloc.allocatedVolume.toFixed(2),
+            input: alloc.gross_volume.toFixed(2),
+            maxAllowed: maxAllocation.toFixed(2),
+          }
+        );
+      }
+
+      return {
+        ...alloc,
+        allocatedVolume,
+      };
+    });
+
+    // Round allocated volumes
+    const roundedAllocations = cappedVolumeAllocations.map((alloc) => ({
+      ...alloc,
+      allocatedVolume: Math.round(alloc.allocatedVolume * 100) / 100,
+    }));
+
+    // Calculate total allocated after capping and rounding
+    const totalAllocated = roundedAllocations.reduce(
+      (sum, a) => sum + a.allocatedVolume,
+      0
+    );
+    const volumeDifference =
+      Math.round((terminalVolume - totalAllocated) * 100) / 100;
+
+    // If there's excess terminal volume after capping, try to redistribute
+    if (volumeDifference > 0) {
+      // Find partners with room (allocated < 99.9% of input)
+      const partnersWithRoom = roundedAllocations.filter(
+        (alloc) => alloc.allocatedVolume < alloc.gross_volume * MAX_ALLOCATION_FACTOR
+      );
+
+      if (partnersWithRoom.length > 0) {
+        // Calculate how much room each has (up to 99.9% of input)
+        const totalRoom = partnersWithRoom.reduce(
+          (sum, alloc) =>
+            sum +
+            (alloc.gross_volume * MAX_ALLOCATION_FACTOR - alloc.allocatedVolume),
+          0
+        );
+
+        // Distribute proportionally to available room, but don't exceed 99.9% of input
+        let remainingDifference = volumeDifference;
+        partnersWithRoom.forEach((alloc) => {
+          const maxAllocation = alloc.gross_volume * MAX_ALLOCATION_FACTOR;
+          const partnerRoom = maxAllocation - alloc.allocatedVolume;
+          if (totalRoom > 0 && remainingDifference > 0) {
+            const additional = Math.min(
+              remainingDifference * (partnerRoom / totalRoom),
+              partnerRoom
+            );
+            alloc.allocatedVolume += additional;
+            alloc.allocatedVolume =
+              Math.round(alloc.allocatedVolume * 100) / 100;
+            remainingDifference =
+              Math.round((remainingDifference - additional) * 100) / 100;
+          }
+        });
+
+        console.info(
+          "Redistributed excess terminal volume to partners with room",
+          {
+            redistributed: (volumeDifference - remainingDifference).toFixed(2),
+            unallocated: remainingDifference.toFixed(2),
+          }
+        );
+      } else {
+        console.warn(
+          "Terminal volume exceeds total input volume, cannot allocate excess",
+          {
+            terminal: terminalVolume.toFixed(2),
+            totalInput: roundedAllocations
+              .reduce((sum, a) => sum + a.gross_volume, 0)
+              .toFixed(2),
+            excess: volumeDifference.toFixed(2),
+          }
+        );
+      }
+    } else if (volumeDifference < 0) {
+      // We allocated too much (shouldn't happen with caps, but handle it)
+      const absDiff = Math.abs(volumeDifference);
+      const largestIdx = roundedAllocations.reduce(
+        (maxIdx, alloc, idx, arr) =>
+          alloc.allocatedVolume > arr[maxIdx].allocatedVolume ? idx : maxIdx,
+        0
+      );
+      roundedAllocations[largestIdx].allocatedVolume -= absDiff;
+      roundedAllocations[largestIdx].allocatedVolume =
+        Math.round(roundedAllocations[largestIdx].allocatedVolume * 100) / 100;
+    }
+
+    // Recalculate final percentages from adjusted volumes (and ensure cap)
+    const finalAllocations = roundedAllocations.map((alloc) => ({
+      ...alloc,
+      finalPercentage: Math.min(
+        (alloc.allocatedVolume / terminalVolume) * 100,
+        MAX_PERCENTAGE
+      ),
+    }));
+
+    // Create final results
+    const allocationResults = finalAllocations.map((alloc) => {
+      const volumeLoss = alloc.gross_volume - alloc.allocatedVolume;
+
+      return {
+        partner: alloc.partner,
+        input_volume: alloc.gross_volume,
+        net_volume: alloc.net_volume,
+        allocated_volume: Math.round(alloc.allocatedVolume * 100) / 100,
+        percentage: Math.round(alloc.finalPercentage * 100) / 100,
         volume_loss: Math.round(volumeLoss * 100) / 100,
       };
     });
