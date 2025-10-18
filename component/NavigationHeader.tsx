@@ -19,7 +19,6 @@ import {
   Hamburger,
   Menu,
   Sparkles,
-  Cpu,
 } from "lucide-react";
 import { Permission, UserRole } from "../types";
 import { COLORS } from "./Home";
@@ -76,12 +75,6 @@ const getNavigationItems = (
         icon: Sparkles,
         active: currentPath.includes("/ai-insights"),
       },
-      {
-        label: "Agent Command Center",
-        href: "/agents",
-        icon: Cpu,
-        active: currentPath.includes("/agents"),
-      },
     ],
     jv_coordinator: [
       {
@@ -101,12 +94,6 @@ const getNavigationItems = (
         href: "/reconciliation",
         icon: Shield,
         active: currentPath.includes("/reconciliation"),
-      },
-      {
-        label: "Agent Command Center",
-        href: "/agents",
-        icon: Cpu,
-        active: currentPath.includes("/agents"),
       },
       // {
       //   label: "Terminal Reciept",
@@ -134,12 +121,6 @@ const getNavigationItems = (
         icon: Shield,
         active: currentPath.includes("/reconciliation"),
       },
-      {
-        label: "Agent Command Center",
-        href: "/agents",
-        icon: Cpu,
-        active: currentPath.includes("/agents"),
-      },
     ],
     jv_partner: [
       {
@@ -160,12 +141,6 @@ const getNavigationItems = (
         icon: Shield,
         active: currentPath.includes("/reconciliation"),
       },
-      {
-        label: "Agent Command Center",
-        href: "/agents",
-        icon: Cpu,
-        active: currentPath.includes("/agents"),
-      },
     ],
     auditor: [
       {
@@ -185,12 +160,6 @@ const getNavigationItems = (
         href: "/integrity",
         icon: Shield,
         active: currentPath.includes("/integrity"),
-      },
-      {
-        label: "Agent Command Center",
-        href: "/agents",
-        icon: Cpu,
-        active: currentPath.includes("/agents"),
       },
     ],
   };
