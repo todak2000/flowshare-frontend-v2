@@ -189,51 +189,104 @@ export default function AgentCommandCenter() {
             ) : agentLogs.length === 0 ? (
               <div className="text-gray-500">No agent activity yet</div>
             ) : (
-              <div className="space-y-2">
+              <div className="space-y-3">
                 {agentLogs.map((log) => (
                   <div
                     key={log.id}
-                    className="border-l-2 border-gray-600 pl-4 py-2 hover:bg-gray-700/30 transition-colors"
+                    className="bg-gray-700/20 border border-gray-600/30 rounded-lg p-4 hover:bg-gray-700/40 transition-all duration-200"
                   >
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2">
-                          <span className="text-gray-500 text-xs">
-                            {new Date(log.timestamp).toLocaleString()}
-                          </span>
-                          <span className={`font-semibold ${getAgentColor(log.agent_name)}`}>
-                            [{log.agent_name}]
-                          </span>
-                          <span className="text-gray-300">{log.action}</span>
-                          <span
-                            className={`px-2 py-0.5 rounded text-xs ${
-                              log.status === 'completed'
-                                ? 'bg-green-900 text-green-200'
-                                : log.status === 'failed'
-                                ? 'bg-red-900 text-red-200'
-                                : 'bg-yellow-900 text-yellow-200'
-                            }`}
-                          >
-                            {log.status}
-                          </span>
-                        </div>
-                        {log.execution_time_ms && (
-                          <div className="text-xs text-gray-500 mt-1">
-                            Execution time: {log.execution_time_ms.toFixed(2)}ms
-                          </div>
-                        )}
-                        {log.output_data && (
-                          <details className="mt-2">
-                            <summary className="text-xs text-blue-400 cursor-pointer hover:underline">
-                              View details
-                            </summary>
-                            <pre className="text-xs bg-gray-900 p-2 rounded mt-1 overflow-auto">
-                              {JSON.stringify(log.output_data, null, 2)}
-                            </pre>
-                          </details>
-                        )}
+                    <div className="flex items-start justify-between mb-2">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className={`font-bold text-sm ${getAgentColor(log.agent_name)}`}>
+                          {log.agent_name}
+                        </span>
+                        <span
+                          className={`px-2 py-0.5 rounded text-xs font-medium ${
+                            log.status === 'completed'
+                              ? 'bg-green-900/50 text-green-300 border border-green-700'
+                              : log.status === 'failed'
+                              ? 'bg-red-900/50 text-red-300 border border-red-700'
+                              : 'bg-yellow-900/50 text-yellow-300 border border-yellow-700'
+                          }`}
+                        >
+                          {log.status.toUpperCase()}
+                        </span>
+                        <span className="text-xs text-gray-500">
+                          {new Date(log.timestamp).toLocaleString()}
+                        </span>
                       </div>
+                      {log.execution_time_ms && (
+                        <span className="text-xs text-gray-400 bg-gray-800 px-2 py-1 rounded">
+                          ⚡ {log.execution_time_ms.toFixed(0)}ms
+                        </span>
+                      )}
                     </div>
+
+                    {/* Action Description */}
+                    <div className="mb-2">
+                      <span className="text-gray-300 font-medium">{log.action}</span>
+                      {log.output_data?.details && (
+                        <div className="text-sm text-gray-400 mt-1">
+                          📋 {log.output_data.details}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Input/Output Details in Grid */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
+                      {/* Input Data */}
+                      {log.input_data && Object.keys(log.input_data).length > 0 && (
+                        <div className="bg-gray-800/50 rounded p-2 border border-gray-700">
+                          <div className="text-gray-400 font-semibold mb-1 flex items-center gap-1">
+                            <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                              <path d="M3 12v3c0 1.657 3.134 3 7 3s7-1.343 7-3v-3c0 1.657-3.134 3-7 3s-7-1.343-7-3z"/>
+                              <path d="M3 7v3c0 1.657 3.134 3 7 3s7-1.343 7-3V7c0 1.657-3.134 3-7 3S3 8.657 3 7z"/>
+                              <path d="M17 5c0 1.657-3.134 3-7 3S3 6.657 3 5s3.134-3 7-3 7 1.343 7 3z"/>
+                            </svg>
+                            INPUT
+                          </div>
+                          {Object.entries(log.input_data)
+                            .filter(([key]) => key !== 'notification_id')
+                            .map(([key, value]) => (
+                            <div key={key} className="flex justify-between gap-2 py-0.5">
+                              <span className="text-gray-500 capitalize">{key.replace(/_/g, ' ')}:</span>
+                              <span className="text-gray-300 font-medium truncate max-w-[200px]" title={String(value)}>
+                                {String(value)}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+
+                      {/* Output Data */}
+                      {log.output_data && Object.keys(log.output_data).length > 0 && (
+                        <div className="bg-gray-800/50 rounded p-2 border border-gray-700">
+                          <div className="text-gray-400 font-semibold mb-1 flex items-center gap-1">
+                            <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd"/>
+                            </svg>
+                            OUTPUT
+                          </div>
+                          {Object.entries(log.output_data)
+                            .filter(([key]) => key !== 'details')
+                            .map(([key, value]) => (
+                            <div key={key} className="flex justify-between gap-2 py-0.5">
+                              <span className="text-gray-500 capitalize">{key.replace(/_/g, ' ')}:</span>
+                              <span className="text-gray-300 font-medium truncate max-w-[200px]" title={String(value)}>
+                                {value || 'N/A'}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Error Message if Failed */}
+                    {log.status === 'failed' && log.output_data?.error && (
+                      <div className="mt-2 bg-red-900/20 border border-red-700/50 rounded p-2 text-xs text-red-300">
+                        <span className="font-semibold">Error:</span> {log.output_data.error}
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>
