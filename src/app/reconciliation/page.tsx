@@ -593,7 +593,6 @@ const ReconciliationPage: React.FC = () => {
               </span>
             </div>
           </div>
-
           <div className="overflow-x-auto">
             {loading ? (
               <div className="p-8 text-center">
@@ -666,8 +665,16 @@ const ReconciliationPage: React.FC = () => {
                 </thead>
                 <tbody className="divide-y divide-white/10">
                   {reconciliationRuns.map((run) => {
-                    const volumeLoss =
-                      run.total_input_volume - run.total_terminal_volume;
+                    // Use stored volume loss if available, otherwise calculate fallback
+                    const volumeLoss = run.total_volume_loss !== undefined
+                      ? run.total_volume_loss
+                      : (run.total_input_volume - run.total_terminal_volume);
+
+                    // Use stored allocated volume if available, otherwise use terminal volume as fallback
+                    const allocatedVolume = run.total_allocated_volume !== undefined
+                      ? run.total_allocated_volume
+                      : run.total_terminal_volume;
+
                     return (
                       <tr
                         key={run.id}
@@ -691,9 +698,9 @@ const ReconciliationPage: React.FC = () => {
                           {run.total_input_volume.toLocaleString()} BBL
                         </td>
                         <td
-                          className={`px-6 py-4 whitespace-nowrap text-sm font-medium text-blue-400`}
+                          className={`px-6 py-4 whitespace-nowrap text-sm font-medium text-green-400`}
                         >
-                          {run.total_terminal_volume.toLocaleString()} BBL
+                          {allocatedVolume.toLocaleString()} BBL
                         </td>
                         <td
                           className={`px-6 py-4 whitespace-nowrap text-sm font-medium ${
@@ -960,7 +967,6 @@ const ReconciliationPage: React.FC = () => {
                 <BarChart3 className="w-4 h-4" />
                 <span>Volume Summary</span>
               </h4>
-
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
                 <div className="flex justify-between">
                   <span className={COLORS.text.muted}>Total Partners:</span>
