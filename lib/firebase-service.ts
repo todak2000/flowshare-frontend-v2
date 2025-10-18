@@ -1064,21 +1064,37 @@ export class FirebaseService {
         // Using real email for testing - all notifications go to todak2000@gmail.com
         const partnerEmails = 'todak2000@gmail.com';
 
+        // Format period for subject line (e.g., "October 2025")
+        const periodMonth = periodStartDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+
         await sendNotification({
           notification_id: `notif_${reconciliationId}`,
           notification_data: {
             type: 'email',
             recipient: partnerEmails,
-            subject: '✅ New Reconciliation Report Available',
-            body: `A new reconciliation report for the period ${periodStartDate.toLocaleDateString()} to ${periodEndDate.toLocaleDateString()} has been completed.\n\nTotal allocations: ${allocationResults.length} partners\n\nPartners involved: ${allocationResults.map(r => r.partner).join(', ')}\n\nPlease review the results in the system.`,
+            subject: `✅ ${periodMonth} Reconciliation Report Available`,
+            body: `Reconciliation report for ${periodMonth}`, // Required by Pydantic
             metadata: {
               reconciliation_id: reconciliationId,
-              allocations_count: allocationResults.length,
-              total_input_volume: totalGrossVolumeAllPartners,
-              terminal_volume: totalTerminalVolume,
-              shrinkage_factor: shrinkageFactor,
               period_start: periodStartDate.toISOString(),
               period_end: periodEndDate.toISOString(),
+              reconciliation_data: {
+                period_start: periodStartDate.toLocaleDateString(),
+                period_end: periodEndDate.toLocaleDateString(),
+                period_month: periodMonth,
+                allocations_count: allocationResults.length,
+                total_input_volume: totalGrossVolumeAllPartners,
+                terminal_volume: totalTerminalVolume,
+                shrinkage_factor: shrinkageFactor,
+                partners: allocationResults.map(r => r.partner).join(', '),
+                allocations: allocationResults.map(r => ({
+                  partner: r.partner,
+                  input_volume: r.input_volume,
+                  allocated_volume: r.allocated_volume,
+                  volume_loss: r.volume_loss || 0,
+                  percentage: r.percentage,
+                })),
+              },
             },
           },
         });
