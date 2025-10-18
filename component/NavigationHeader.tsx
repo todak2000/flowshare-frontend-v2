@@ -19,12 +19,14 @@ import {
   Hamburger,
   Menu,
   Sparkles,
+  Cpu,
 } from "lucide-react";
 import { Permission, UserRole } from "../types";
 import { COLORS } from "./Home";
 import { useUser } from "../hook/useUser";
 import { Logo } from "./Logo";
 import { firebaseService } from "../lib/firebase-service";
+import { useNotifications } from "../lib/notifications-context";
 
 // TypeScript Interfaces
 interface User {
@@ -74,6 +76,12 @@ const getNavigationItems = (
         icon: Sparkles,
         active: currentPath.includes("/ai-insights"),
       },
+      {
+        label: "Agent Command Center",
+        href: "/agents",
+        icon: Cpu,
+        active: currentPath.includes("/agents"),
+      },
     ],
     jv_coordinator: [
       {
@@ -93,6 +101,12 @@ const getNavigationItems = (
         href: "/reconciliation",
         icon: Shield,
         active: currentPath.includes("/reconciliation"),
+      },
+      {
+        label: "Agent Command Center",
+        href: "/agents",
+        icon: Cpu,
+        active: currentPath.includes("/agents"),
       },
       // {
       //   label: "Terminal Reciept",
@@ -120,6 +134,12 @@ const getNavigationItems = (
         icon: Shield,
         active: currentPath.includes("/reconciliation"),
       },
+      {
+        label: "Agent Command Center",
+        href: "/agents",
+        icon: Cpu,
+        active: currentPath.includes("/agents"),
+      },
     ],
     jv_partner: [
       {
@@ -140,6 +160,12 @@ const getNavigationItems = (
         icon: Shield,
         active: currentPath.includes("/reconciliation"),
       },
+      {
+        label: "Agent Command Center",
+        href: "/agents",
+        icon: Cpu,
+        active: currentPath.includes("/agents"),
+      },
     ],
     auditor: [
       {
@@ -159,6 +185,12 @@ const getNavigationItems = (
         href: "/integrity",
         icon: Shield,
         active: currentPath.includes("/integrity"),
+      },
+      {
+        label: "Agent Command Center",
+        href: "/agents",
+        icon: Cpu,
+        active: currentPath.includes("/agents"),
       },
     ],
   };
@@ -262,6 +294,124 @@ const UserMenu: React.FC<UserMenuProps> = ({
     )}
   </div>
 );
+
+// Notification Bell Component
+const NotificationBell: React.FC = () => {
+  const { notifications, unreadCount, markAsRead, markAllAsRead } = useNotifications();
+  const [isOpen, setIsOpen] = useState(false);
+
+  return (
+    <div className="relative">
+      {/* Bell Icon */}
+      <button
+        onClick={() => setIsOpen(!isOpen)}
+        className="relative p-2 hover:bg-white/10 rounded-full transition-colors"
+      >
+        <Bell className={`w-5 h-5 ${COLORS.text.primary}`} />
+        {unreadCount > 0 && (
+          <span className="absolute top-0 right-0 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
+            {unreadCount}
+          </span>
+        )}
+      </button>
+
+      {/* Dropdown */}
+      {isOpen && (
+        <>
+          {/* Backdrop */}
+          <div
+            className="fixed inset-0 z-40"
+            onClick={() => setIsOpen(false)}
+          />
+
+          {/* Notifications Dropdown */}
+          <div className="absolute right-0 mt-2 w-96 bg-black backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl z-50 overflow-hidden">
+            {/* Header */}
+            <div className="p-4 border-b border-white/10 flex items-center justify-between">
+              <h3 className={`font-semibold ${COLORS.text.primary}`}>Notifications</h3>
+              {unreadCount > 0 && (
+                <button
+                  onClick={markAllAsRead}
+                  className="text-xs text-blue-400 hover:underline"
+                >
+                  Mark all as read
+                </button>
+              )}
+            </div>
+
+            {/* Notifications List */}
+            <div className="max-h-96 overflow-y-auto">
+              {notifications.length === 0 ? (
+                <div className="p-8 text-center text-gray-500">
+                  No notifications
+                </div>
+              ) : (
+                notifications.map((notification) => (
+                  <div
+                    key={notification.id}
+                    className={`p-4 border-b border-white/5 hover:bg-white/5 transition-colors cursor-pointer ${
+                      !notification.read ? 'bg-blue-500/10' : ''
+                    }`}
+                    onClick={() => {
+                      markAsRead(notification.id);
+                    }}
+                  >
+                    <div className="flex items-start gap-3">
+                      <div className="text-2xl">
+                        {notification.type === 'reconciliation' ? '📊' : '📧'}
+                      </div>
+                      <div className="flex-1">
+                        <h4 className={`font-semibold text-sm mb-1 ${COLORS.text.primary}`}>
+                          {notification.subject}
+                        </h4>
+
+                        {/* AI-Generated Summary */}
+                        {notification.ai_summary && (
+                          <div className="bg-purple-500/20 border border-purple-500/30 rounded p-2 mb-2">
+                            <div className="text-xs text-purple-400 font-semibold mb-1">
+                              AI Summary
+                            </div>
+                            <p className={`text-xs ${COLORS.text.secondary}`}>
+                              {notification.ai_summary}
+                            </p>
+                          </div>
+                        )}
+
+                        <p className={`text-xs ${COLORS.text.muted} line-clamp-2`}>
+                          {notification.message}
+                        </p>
+
+                        <div className={`text-xs ${COLORS.text.muted} mt-2`}>
+                          {new Date(notification.timestamp).toLocaleString()}
+                        </div>
+                      </div>
+
+                      {!notification.read && (
+                        <div className="w-2 h-2 bg-blue-600 rounded-full mt-1" />
+                      )}
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+
+            {/* Footer */}
+            <div className="p-3 border-t border-white/10 text-center">
+              <button
+                onClick={() => {
+                  setIsOpen(false);
+                }}
+                className="text-sm text-blue-400 hover:underline"
+              >
+                View all notifications
+              </button>
+            </div>
+          </div>
+        </>
+      )}
+    </div>
+  );
+};
 
 // Navigation Item Component
 interface NavItemProps {
@@ -396,6 +546,9 @@ const NavigationHeader: React.FC = () => {
 
           {/* Right Side */}
           <div className="flex items-center space-x-4">
+            {/* Notification Bell */}
+            <NotificationBell />
+
             {/* User Menu */}
             <UserMenu
               userData={userData as User}
@@ -412,7 +565,7 @@ const NavigationHeader: React.FC = () => {
             >
               <Menu className="text-white" />
             </button>
-            
+
           </div>
         </div>
       </div>

@@ -2,6 +2,8 @@
 
 # dependencies
 /node_modules
+*.md
+*.sh
 /.pnp
 .pnp.*
 .yarn/*
@@ -13,7 +15,6 @@ credentials.json
 deploy-to-cloudrun.sh
 # testing
 /coverage
-
 # next.js
 /.next/
 /out/

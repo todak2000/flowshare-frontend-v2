@@ -27,12 +27,17 @@ import { useUser } from "../../../hook/useUser";
 import { useProductionCalculations } from "../../../hook/useProductionCalculations";
 import { firebaseService } from "../../../lib/firebase-service";
 import { Modal } from "../../../component/Modal";
+import {
+  validateProductionEntry,
+  sendNotification,
+} from "../../../lib/agents-api";
 import { ProductionChart } from "../../../component/ProductionChart";
 import { PartnerPieChart } from "../../../component/PartnerPieChart";
 import LoadingSpinner from "../../../component/LoadingSpinner";
 import { formatVolume } from "../../../utils/formatVolume";
 import { formatWithOrdinal } from "../../../utils/timestampToPeriod";
 import { formatNumber } from "../../../utils/formatNumber";
+import { formatAiAnalysis } from "../../../utils/formatAiAnalysis";
 
 interface Filters {
   partner: string;
@@ -351,6 +356,7 @@ interface ProductionTableProps {
   onEdit: (entry: ProductionEntry) => void;
   onDelete: (id: string) => void;
   onApprove: (entry: ProductionEntry) => void;
+  onViewFlagged: (entry: ProductionEntry) => void;
   goToPreviousPage: () => void;
   hasPrevious: boolean;
   hasMore: boolean;
@@ -370,6 +376,7 @@ const ProductionTable: React.FC<ProductionTableProps> = ({
   onEdit,
   onApprove,
   onDelete,
+  onViewFlagged,
   goToPreviousPage,
   hasPrevious,
   role,
@@ -433,7 +440,12 @@ const ProductionTable: React.FC<ProductionTableProps> = ({
           </thead>
           <tbody className="divide-y divide-white/10">
             {data.map((entry) => (
-              <tr key={entry.id} className="hover:bg-white/5 transition-colors">
+              <tr
+                key={entry.id}
+                className={`${
+                  entry.flagged ? "hover:bg-red-500/20" : "hover:bg-white/5"
+                } transition-colors`}
+              >
                 <td
                   className={`px-6 py-4 whitespace-nowrap ${COLORS.text.primary}`}
                 >
@@ -475,7 +487,17 @@ const ProductionTable: React.FC<ProductionTableProps> = ({
                   {entry.api_gravity}
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm">
-                  {entry?.edited_by && !entry?.isApproved ? (
+                  {entry.flagged ? (
+                    <button
+                      onClick={() => onViewFlagged(entry)}
+                      className="flex items-center gap-2 cursor-pointer hover:bg-red-500/10 px-3 py-1 rounded-lg transition-colors"
+                    >
+                      <span className="text-red-600 text-xl">⚠️</span>
+                      <span className="px-2 py-0.5 rounded-full text-xs bg-red-600 text-white">
+                        FLAGGED - View Details
+                      </span>
+                    </button>
+                  ) : entry?.edited_by && !entry?.isApproved ? (
                     <button
                       disabled={role !== "jv_partner"}
                       onClick={
@@ -805,6 +827,8 @@ const ProductionDashboard: React.FC = () => {
   const [editingEntry, setEditingEntry] = useState<ProductionEntry | null>(
     null
   );
+  const [flaggedEntry, setFlaggedEntry] = useState<ProductionEntry | null>(null);
+  const [showFlaggedModal, setShowFlaggedModal] = useState<boolean>(false);
   const { auth, data: userData, loading: userLoading } = useUser();
 
   // Initialize date filters to current month
@@ -993,6 +1017,46 @@ const ProductionDashboard: React.FC = () => {
           editingEntry.id,
           updateData
         );
+
+        // If entry was flagged and JV coordinator edited it, re-run auditor agent
+        if (editingEntry.flagged && userData?.role === "jv_coordinator") {
+          console.log("🤖 Re-running Auditor Agent after edit...");
+          try {
+            const validationRequest = {
+              entry_id: editingEntry.id,
+              entry_data: {
+                id: editingEntry.id,
+                partner: editingEntry.partner,
+                gross_volume_bbl: parseFloat(data.gross_volume_bbl),
+                bsw_percent: parseFloat(data.bsw_percent),
+                temperature_degF: parseFloat(data.temperature_degF),
+                api_gravity: parseFloat(data.api_gravity),
+                timestamp: typeof editingEntry.timestamp === 'string'
+                  ? editingEntry.timestamp
+                  : new Date(editingEntry.timestamp).toISOString(),
+              },
+            };
+
+            const validationResult = await validateProductionEntry(validationRequest);
+            console.log("Revalidation result:", validationResult);
+
+            // Update with new validation result
+            await firebaseService.updateProductionEntry(editingEntry.id, {
+              flagged: validationResult.flagged,
+              ai_analysis: validationResult.ai_analysis,
+              anomaly_score: validationResult.confidence_score,
+            });
+
+            if (!validationResult.flagged) {
+              alert("✅ Entry updated and validated successfully! Flag has been cleared.");
+            } else {
+              alert(`⚠️ Entry updated but still flagged.\n\nAI Analysis: ${validationResult.ai_analysis || "Anomaly detected"}\n\nConfidence Score: ${validationResult.confidence_score?.toFixed(2) || "N/A"}`);
+            }
+          } catch (revalidationError) {
+            console.error("Error revalidating entry:", revalidationError);
+            alert("Entry updated but could not be revalidated. Please check manually.");
+          }
+        }
       } else {
         const submissionData = {
           partner: userData.company,
@@ -1004,7 +1068,120 @@ const ProductionDashboard: React.FC = () => {
           created_by: auth.uid || "",
           isApproved: false,
         };
-        await firebaseService.createProductionEntry(submissionData);
+
+        // 1. Save to Firestore
+        console.log("💾 Saving production entry to Firestore...");
+        const entryId = await firebaseService.createProductionEntry(
+          submissionData
+        );
+        console.log(`✅ Entry saved with ID: ${entryId}`);
+
+        // 2. Validate with Auditor Agent
+        console.log("🤖 Calling Auditor Agent for validation...");
+        console.log(
+          "Auditor Agent URL:",
+          process.env.NEXT_PUBLIC_AUDITOR_AGENT_URL || "http://localhost:8081"
+        );
+
+        try {
+          const validationRequest = {
+            entry_id: entryId,
+            entry_data: {
+              id: entryId,
+              partner: userData.company,
+              gross_volume_bbl: parseFloat(data.gross_volume_bbl),
+              bsw_percent: parseFloat(data.bsw_percent),
+              temperature_degF: parseFloat(data.temperature_degF),
+              api_gravity: parseFloat(data.api_gravity),
+              timestamp: new Date().toISOString(), // Required by Auditor Agent
+            },
+          };
+
+          console.log(
+            "Validation request:",
+            JSON.stringify(validationRequest, null, 2)
+          );
+          const validationResult = await validateProductionEntry(
+            validationRequest
+          );
+          console.log(
+            "Validation result:",
+            JSON.stringify(validationResult, null, 2)
+          );
+
+          // 3. Update Firestore with validation result if flagged
+          if (validationResult.flagged) {
+            await firebaseService.updateProductionEntry(entryId, {
+              flagged: true,
+              ai_analysis: validationResult.ai_analysis,
+              anomaly_score: validationResult.confidence_score,
+            });
+
+            // 4. Send notification via Communicator Agent for flagged entry
+            try {
+              await sendNotification({
+                notification_id: `notif_flagged_${entryId}`,
+                notification_data: {
+                  type: "email",
+                  recipient: "todak2000@gmail.com",
+                  subject: `⚠️ Flagged Production Entry - ${userData.company}`,
+                  body: `A production entry from ${
+                    userData.company
+                  } has been flagged for review.\n\nEntry ID: ${entryId}\nVolume: ${parseFloat(
+                    data.gross_volume_bbl
+                  )} BBL\nBS&W: ${parseFloat(
+                    data.bsw_percent
+                  )}%\nTemperature: ${parseFloat(
+                    data.temperature_degF
+                  )}°F\nAPI Gravity: ${parseFloat(
+                    data.api_gravity
+                  )}°\n\nAI Analysis: ${
+                    validationResult.ai_analysis || "Anomaly detected"
+                  }\nConfidence Score: ${
+                    validationResult.confidence_score?.toFixed(2) || "N/A"
+                  }`,
+                  metadata: {
+                    entry_id: entryId,
+                    partner: userData.company,
+                    confidence_score: validationResult.confidence_score,
+                    flagged: true,
+                  },
+                },
+              });
+              console.log(
+                "✅ Communicator Agent notification sent for flagged entry"
+              );
+            } catch (notificationError) {
+              console.error(
+                "❌ Error sending notification for flagged entry:",
+                notificationError
+              );
+              // Don't fail the entry creation if notification fails
+            }
+
+            // Show warning message
+            alert(
+              `⚠️ Entry saved but flagged for review!\n\nAI Analysis: ${
+                validationResult.ai_analysis ||
+                "Anomaly detected by Auditor Agent"
+              }\n\nConfidence Score: ${
+                validationResult.confidence_score?.toFixed(2) || "N/A"
+              }\n\nAuditors have been notified.`
+            );
+          } else {
+            // Show success message
+            alert("✅ Entry validated and saved successfully!");
+          }
+        } catch (validationError) {
+          console.error(
+            "Error validating entry with Auditor Agent:",
+            validationError
+          );
+          // Entry is still saved, just couldn't validate
+          alert(
+            "⚠️ Entry saved but could not be validated by Auditor Agent. Please check manually."
+          );
+        }
       }
 
       handleCloseForm();
@@ -1275,6 +1452,10 @@ const ProductionDashboard: React.FC = () => {
               onEdit={handleEdit}
               onApprove={handleApproval}
               onDelete={handleDelete}
+              onViewFlagged={(entry) => {
+                setFlaggedEntry(entry);
+                setShowFlaggedModal(true);
+              }}
               goToPreviousPage={goToPreviousPage}
               hasPrevious={hasPrevious}
               hasMore={hasMore}
@@ -1328,6 +1509,110 @@ const ProductionDashboard: React.FC = () => {
           loading={loading}
           role={userData?.role as UserRole}
         />
+      </Modal>
+
+      {/* Flagged Entry Details Modal */}
+      <Modal
+        isOpen={showFlaggedModal}
+        onClose={() => {
+          setShowFlaggedModal(false);
+          setFlaggedEntry(null);
+        }}
+        title="⚠️ Flagged Entry - AI Analysis"
+      >
+        {flaggedEntry && (
+          <div className="space-y-4">
+            <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-4">
+              <h4 className="text-lg font-semibold text-red-400 mb-3">
+                Entry Details
+              </h4>
+              <div className="grid grid-cols-2 gap-3 text-sm">
+                <div>
+                  <p className="text-gray-400">Partner:</p>
+                  <p className="text-white font-medium">{flaggedEntry.partner}</p>
+                </div>
+                <div>
+                  <p className="text-gray-400">Volume (BBL):</p>
+                  <p className="text-white font-medium">
+                    {flaggedEntry.gross_volume_bbl.toLocaleString()}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-gray-400">BSW (%):</p>
+                  <p className="text-white font-medium">
+                    {flaggedEntry.bsw_percent.toFixed(2)}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-gray-400">Temperature (°F):</p>
+                  <p className="text-white font-medium">
+                    {flaggedEntry.temperature_degF}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-gray-400">API Gravity (°API):</p>
+                  <p className="text-white font-medium">
+                    {flaggedEntry.api_gravity}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-gray-400">Date:</p>
+                  <p className="text-white font-medium">
+                    {new Date(flaggedEntry.timestamp).toLocaleDateString()}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-xl p-4">
+              <h4 className="text-lg font-semibold text-yellow-400 mb-3 flex items-center gap-2">
+                <span>🤖</span> AI Analysis
+              </h4>
+              <div className="text-sm mb-3 max-h-96 overflow-y-auto">
+                {formatAiAnalysis(flaggedEntry.ai_analysis || "Anomaly detected by Auditor Agent")}
+              </div>
+              {flaggedEntry.anomaly_score && (
+                <div className="flex items-center gap-2 mt-3 pt-3 border-t border-yellow-500/20">
+                  <span className="text-gray-400 text-xs">Confidence Score:</span>
+                  <span className="text-yellow-400 font-semibold">
+                    {flaggedEntry.anomaly_score.toFixed(2)}%
+                  </span>
+                  <div className="flex-1 bg-gray-700 rounded-full h-2 overflow-hidden">
+                    <div
+                      className="bg-yellow-400 h-full transition-all duration-300"
+                      style={{ width: `${flaggedEntry.anomaly_score}%` }}
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div className="bg-blue-500/10 border border-blue-500/30 rounded-xl p-4">
+              <h4 className="text-sm font-semibold text-blue-400 mb-2">
+                Recommended Actions
+              </h4>
+              <ul className="text-xs text-gray-300 space-y-1">
+                <li>• Review the flagged values for accuracy</li>
+                <li>• Verify measurement equipment calibration</li>
+                <li>• Check for data entry errors</li>
+                <li>• Contact the field operator if needed</li>
+              </ul>
+            </div>
+
+            {userData?.role === "jv_coordinator" && (
+              <button
+                onClick={() => {
+                  setShowFlaggedModal(false);
+                  handleEdit(flaggedEntry);
+                }}
+                className="w-full bg-gradient-to-r from-blue-600 to-purple-600 text-white py-3 px-4 rounded-xl font-medium hover:from-blue-700 hover:to-purple-700 transition-all duration-300 flex items-center justify-center gap-2"
+              >
+                <Edit className="w-4 h-4" />
+                <span>Edit This Entry</span>
+              </button>
+            )}
+          </div>
+        )}
       </Modal>
     </div>
   );

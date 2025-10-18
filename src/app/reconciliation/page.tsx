@@ -424,6 +424,7 @@ const ReconciliationPage: React.FC = () => {
     setLoading(true);
     try {
       const report = await firebaseService.getReconciliationReport(run.id);
+
       setSelectedReport(report);
       setShowReportModal(true);
     } catch (error) {
@@ -592,7 +593,6 @@ const ReconciliationPage: React.FC = () => {
               </span>
             </div>
           </div>
-
           <div className="overflow-x-auto">
             {loading ? (
               <div className="p-8 text-center">
