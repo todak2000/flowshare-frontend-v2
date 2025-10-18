@@ -269,14 +269,24 @@ export default function AgentCommandCenter() {
                           </div>
                           {Object.entries(log.output_data)
                             .filter(([key]) => key !== 'details')
-                            .map(([key, value]) => (
-                            <div key={key} className="flex justify-between gap-2 py-0.5">
-                              <span className="text-gray-500 capitalize">{key.replace(/_/g, ' ')}:</span>
-                              <span className="text-gray-300 font-medium truncate max-w-[200px]" title={String(value)}>
-                                {value || 'N/A'}
-                              </span>
-                            </div>
-                          ))}
+                            .map(([key, value]) => {
+                              let displayValue = 'N/A';
+                              if (value !== null && value !== undefined) {
+                                if (typeof value === 'object') {
+                                  displayValue = JSON.stringify(value);
+                                } else {
+                                  displayValue = String(value);
+                                }
+                              }
+                              return (
+                                <div key={key} className="flex justify-between gap-2 py-0.5">
+                                  <span className="text-gray-500 capitalize">{key.replace(/_/g, ' ')}:</span>
+                                  <span className="text-gray-300 font-medium truncate max-w-[200px]" title={displayValue}>
+                                    {displayValue}
+                                  </span>
+                                </div>
+                              );
+                            })}
                         </div>
                       )}
                     </div>
