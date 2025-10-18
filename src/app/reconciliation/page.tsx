@@ -593,7 +593,7 @@ const ReconciliationPage: React.FC = () => {
               </span>
             </div>
           </div>
-{console.log(reconciliationRuns, 'reconciliationRunsewas')}
+
           <div className="overflow-x-auto">
             {loading ? (
               <div className="p-8 text-center">
@@ -960,7 +960,7 @@ const ReconciliationPage: React.FC = () => {
                 <BarChart3 className="w-4 h-4" />
                 <span>Volume Summary</span>
               </h4>
-              {console.log(selectedReport.summary, 'ytuyrefg')}
+
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
                 <div className="flex justify-between">
                   <span className={COLORS.text.muted}>Total Partners:</span>
