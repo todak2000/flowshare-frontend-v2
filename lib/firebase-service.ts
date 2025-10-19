@@ -783,6 +783,48 @@ export class FirebaseService {
     }
   }
 
+  // Get users by role and optionally by company
+  async getUsersByRoleAndCompany(
+    role?: UserRole,
+    company?: string
+  ): Promise<User[]> {
+    try {
+      const usersRef = collection(db, 'users');
+      const constraints: QueryConstraint[] = [];
+
+      if (role) {
+        constraints.push(where('role', '==', role));
+      }
+
+      if (company) {
+        constraints.push(where('company', '==', company));
+      }
+
+      const q = query(usersRef, ...constraints);
+      const querySnapshot = await getDocs(q);
+
+      const users: User[] = [];
+      querySnapshot.forEach((doc) => {
+        const data = doc.data();
+        users.push({
+          uid: doc.id,
+          email: data.email,
+          role: data.role,
+          company: data.company || '',
+          permissions: data.permissions || [],
+          created_at: data.created_at?.toDate() || new Date(),
+          last_login: data.last_login?.toDate(),
+          active: data.active !== undefined ? data.active : true,
+        });
+      });
+
+      return users;
+    } catch (error: any) {
+      console.error('Error fetching users:', error);
+      return [];
+    }
+  }
+
   async triggerReconciliation(
     startDate: Date,
     endDate: Date,
@@ -1110,47 +1152,73 @@ export class FirebaseService {
       console.log("🤖 Calling Communicator Agent to send notifications...");
 
       try {
-        // Send notification to all partners about new reconciliation
-        // Using real email for testing - all notifications go to todak2000@gmail.com
-        const partnerEmails = 'todak2000@gmail.com';
-
         // Format period for subject line (e.g., "October 2025")
         const periodMonth = periodStartDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
 
-        await sendNotification({
-          notification_id: `notif_${reconciliationId}`,
-          notification_data: {
-            type: 'email',
-            recipient: partnerEmails,
-            subject: `✅ ${periodMonth} Reconciliation Report Available`,
-            body: `Reconciliation report for ${periodMonth}`, // Required by Pydantic
-            metadata: {
-              reconciliation_id: reconciliationId,
-              period_start: periodStartDate.toISOString(),
-              period_end: periodEndDate.toISOString(),
-              reconciliation_data: {
+        // Collect all relevant user emails
+        console.log("📧 Collecting recipient emails...");
+
+        // 1. Get all JV coordinators (they should receive all reconciliation reports)
+        const jvCoordinators = await this.getUsersByRoleAndCompany('jv_coordinator');
+        console.log(`Found ${jvCoordinators.length} JV coordinators`);
+
+        // 2. Get unique partners from allocation results
+        const uniquePartners = [...new Set(allocationResults.map(r => r.partner))];
+        console.log(`Found ${uniquePartners.length} unique partners`);
+
+        // 3. For each partner, get their field operators and JV partners
+        const partnerSpecificUsers: User[] = [];
+        for (const partnerName of uniquePartners) {
+          const fieldOps = await this.getUsersByRoleAndCompany('field_operator', partnerName);
+          const jvPartners = await this.getUsersByRoleAndCompany('jv_partner', partnerName);
+          partnerSpecificUsers.push(...fieldOps, ...jvPartners);
+        }
+        console.log(`Found ${partnerSpecificUsers.length} partner-specific users`);
+
+        // 4. Combine all users and get unique emails
+        const allUsers = [...jvCoordinators, ...partnerSpecificUsers];
+        const uniqueEmails = [...new Set(allUsers.map(u => u.email))];
+        console.log(`📤 Sending notifications to ${uniqueEmails.length} unique recipients`);
+
+        // 5. Send individual notification to each recipient
+        const notificationPromises = uniqueEmails.map((email, index) => {
+          return sendNotification({
+            notification_id: `notif_${reconciliationId}_${index}`,
+            notification_data: {
+              type: 'email',
+              recipient: email,
+              subject: `✅ ${periodMonth} Reconciliation Report Available`,
+              body: `Reconciliation report for ${periodMonth}`, // Required by Pydantic
+              metadata: {
                 reconciliation_id: reconciliationId,
-                period_start: periodStartDate.toLocaleDateString(),
-                period_end: periodEndDate.toLocaleDateString(),
-                period_month: periodMonth,
-                allocations_count: allocationResults.length,
-                total_input_volume: totalGrossVolumeAllPartners,
-                terminal_volume: totalTerminalVolume,
-                shrinkage_factor: shrinkageFactor,
-                partners: allocationResults.map(r => r.partner).join(', '),
-                allocations: allocationResults.map(r => ({
-                  partner: r.partner,
-                  input_volume: r.input_volume,
-                  allocated_volume: r.allocated_volume,
-                  volume_loss: r.volume_loss || 0,
-                  percentage: r.percentage,
-                })),
+                period_start: periodStartDate.toISOString(),
+                period_end: periodEndDate.toISOString(),
+                reconciliation_data: {
+                  reconciliation_id: reconciliationId,
+                  period_start: periodStartDate.toLocaleDateString(),
+                  period_end: periodEndDate.toLocaleDateString(),
+                  period_month: periodMonth,
+                  allocations_count: allocationResults.length,
+                  total_input_volume: totalGrossVolumeAllPartners,
+                  terminal_volume: totalTerminalVolume,
+                  shrinkage_factor: shrinkageFactor,
+                  partners: allocationResults.map(r => r.partner).join(', '),
+                  allocations: allocationResults.map(r => ({
+                    partner: r.partner,
+                    input_volume: r.input_volume,
+                    allocated_volume: r.allocated_volume,
+                    volume_loss: r.volume_loss || 0,
+                    percentage: r.percentage,
+                  })),
+                },
               },
             },
-          },
+          });
         });
 
-        console.log("✅ Communicator Agent notification sent successfully");
+        // Wait for all notifications to be sent
+        await Promise.all(notificationPromises);
+        console.log(`✅ Successfully sent ${uniqueEmails.length} notifications`);
       } catch (notificationError) {
         console.error("❌ Error sending notification via Communicator Agent:", notificationError);
         // Don't fail the reconciliation if notification fails
