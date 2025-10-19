@@ -3,7 +3,6 @@
 import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import {
-  Calendar,
   BarChart3,
   TrendingUp,
   Thermometer,
@@ -13,7 +12,6 @@ import {
   RefreshCw,
   AlertTriangle,
   Target,
-  Calculator,
   Terminal,
   Workflow,
   Info,

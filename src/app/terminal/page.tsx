@@ -8,6 +8,7 @@ import { TerminalReceipt, CreateTerminalReceiptData } from '../../../types';
 import LoadingSpinner from '../../../component/LoadingSpinner';
 import SummaryCard from '../../../component/SummaryCard';
 import { Modal } from '../../../component/Modal';
+import { Database, BarChart3, Thermometer } from 'lucide-react';
 
 export default function TerminalReceiptPage() {
   const { auth, data: userData, loading: userLoading } = useUser();
@@ -148,18 +149,21 @@ export default function TerminalReceiptPage() {
             title="Total Receipts"
             value={terminalReceipts.length}
             color="blue"
+            icon={Database}
           />
           <SummaryCard
             title="Total Volume"
             value={totalVolume}
             color="green"
             unit=" BBL"
+            icon={BarChart3}
           />
           <SummaryCard
             title="Avg Temperature"
             value={averageTemperature.toFixed(1)}
             color="orange"
             unit="°F"
+            icon={Thermometer}
           />
         </div>
 
