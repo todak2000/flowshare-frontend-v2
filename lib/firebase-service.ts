@@ -1147,80 +1147,37 @@ export class FirebaseService {
       await batch.commit();
 
       // ===========================================
-      // COMMUNICATOR AGENT INTEGRATION
+      // ACCOUNTANT AGENT INTEGRATION
       // ===========================================
-      console.log("🤖 Calling Communicator Agent to send notifications...");
+      console.log("🤖 Calling Accountant Agent to trigger notifications...");
 
       try {
-        // Format period for subject line (e.g., "October 2025")
-        const periodMonth = periodStartDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+        // Call Accountant Agent's /reconcile endpoint
+        // The Accountant Agent will handle calling the Communicator Agent
+        const ACCOUNTANT_URL = process.env.NEXT_PUBLIC_ACCOUNTANT_AGENT_URL || 'http://localhost:8082';
 
-        // Collect all relevant user emails
-        console.log("📧 Collecting recipient emails...");
-
-        // 1. Get all JV coordinators (they should receive all reconciliation reports)
-        const jvCoordinators = await this.getUsersByRoleAndCompany('jv_coordinator');
-        console.log(`Found ${jvCoordinators.length} JV coordinators`);
-
-        // 2. Get unique partners from allocation results
-        const uniquePartners = [...new Set(allocationResults.map(r => r.partner))];
-        console.log(`Found ${uniquePartners.length} unique partners`);
-
-        // 3. For each partner, get their field operators and JV partners
-        const partnerSpecificUsers: User[] = [];
-        for (const partnerName of uniquePartners) {
-          const fieldOps = await this.getUsersByRoleAndCompany('field_operator', partnerName);
-          const jvPartners = await this.getUsersByRoleAndCompany('jv_partner', partnerName);
-          partnerSpecificUsers.push(...fieldOps, ...jvPartners);
-        }
-        console.log(`Found ${partnerSpecificUsers.length} partner-specific users`);
-
-        // 4. Combine all users and get unique emails
-        const allUsers = [...jvCoordinators, ...partnerSpecificUsers];
-        const uniqueEmails = [...new Set(allUsers.map(u => u.email))];
-        console.log(`📤 Sending notifications to ${uniqueEmails.length} unique recipients`);
-
-        // 5. Send individual notification to each recipient
-        const notificationPromises = uniqueEmails.map((email, index) => {
-          return sendNotification({
-            notification_id: `notif_${reconciliationId}_${index}`,
-            notification_data: {
-              type: 'email',
-              recipient: email,
-              subject: `✅ ${periodMonth} Reconciliation Report Available`,
-              body: `Reconciliation report for ${periodMonth}`, // Required by Pydantic
-              metadata: {
-                reconciliation_id: reconciliationId,
-                period_start: periodStartDate.toISOString(),
-                period_end: periodEndDate.toISOString(),
-                reconciliation_data: {
-                  reconciliation_id: reconciliationId,
-                  period_start: periodStartDate.toLocaleDateString(),
-                  period_end: periodEndDate.toLocaleDateString(),
-                  period_month: periodMonth,
-                  allocations_count: allocationResults.length,
-                  total_input_volume: totalGrossVolumeAllPartners,
-                  terminal_volume: totalTerminalVolume,
-                  shrinkage_factor: shrinkageFactor,
-                  partners: allocationResults.map(r => r.partner).join(', '),
-                  allocations: allocationResults.map(r => ({
-                    partner: r.partner,
-                    input_volume: r.input_volume,
-                    allocated_volume: r.allocated_volume,
-                    volume_loss: r.volume_loss || 0,
-                    percentage: r.percentage,
-                  })),
-                },
-              },
-            },
-          });
+        const response = await fetch(`${ACCOUNTANT_URL}/reconcile`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            start_date: periodStartDate.toISOString(),
+            end_date: periodEndDate.toISOString(),
+            triggered_by: triggeredBy,
+            reconciliation_id: reconciliationId,
+          }),
         });
 
-        // Wait for all notifications to be sent
-        await Promise.all(notificationPromises);
-        console.log(`✅ Successfully sent ${uniqueEmails.length} notifications`);
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.error(`❌ Accountant Agent error: ${response.status} - ${errorText}`);
+          throw new Error(`Accountant Agent error: ${response.statusText}`);
+        }
+
+        const data = await response.json();
+        console.log(`✅ Accountant Agent processed reconciliation successfully`);
+        console.log(`📧 Notifications sent to ${data.notifications_sent}/${data.total_stakeholders} stakeholders`);
       } catch (notificationError) {
-        console.error("❌ Error sending notification via Communicator Agent:", notificationError);
+        console.error("❌ Error calling Accountant Agent:", notificationError);
         // Don't fail the reconciliation if notification fails
         console.log("⚠️ Reconciliation completed successfully but notification failed");
       }
