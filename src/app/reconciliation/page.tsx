@@ -435,7 +435,8 @@ const ReconciliationPage: React.FC = () => {
     }
   };
 
-  const exportReport = (report: ReconciliationReport): void => {
+  // Export report as CSV
+  const exportReportCSV = (report: ReconciliationReport): void => {
     const csv = report.allocations.map((allocation) => ({
       Partner: allocation.partner,
       "Period Start": new Date(
@@ -473,6 +474,213 @@ const ReconciliationPage: React.FC = () => {
     }.csv`;
     a.click();
     window.URL.revokeObjectURL(url);
+  };
+
+  // Export report as PDF using browser print
+  const exportReportPDF = (report: ReconciliationReport): void => {
+    const periodRange = formatFirebaseTimestampRange(
+      report.reconciliation.start_date as Timestamp,
+      report.reconciliation.end_date as Timestamp
+    );
+
+    // Create printable HTML content
+    const printContent = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>FlowShare Reconciliation Report - ${periodRange}</title>
+        <style>
+          @media print {
+            body { margin: 0; padding: 20px; }
+            @page { size: A4; margin: 1cm; }
+          }
+          body {
+            font-family: system-ui, -apple-system, sans-serif;
+            line-height: 1.5;
+            color: #1f2937;
+          }
+          .header {
+            text-align: center;
+            margin-bottom: 30px;
+            border-bottom: 3px solid #3b82f6;
+            padding-bottom: 15px;
+          }
+          .logo {
+            font-size: 24px;
+            font-weight: bold;
+            background: linear-gradient(135deg, #3b82f6 0%, #9333ea 50%, #06b6d4 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 5px;
+          }
+          .period {
+            font-size: 18px;
+            color: #64748b;
+            margin-bottom: 5px;
+          }
+          .date {
+            font-size: 12px;
+            color: #94a3b8;
+          }
+          .summary {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 15px;
+            margin-bottom: 25px;
+          }
+          .summary-card {
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            padding: 12px;
+          }
+          .summary-label {
+            font-size: 11px;
+            color: #64748b;
+            text-transform: uppercase;
+            margin-bottom: 5px;
+          }
+          .summary-value {
+            font-size: 18px;
+            font-weight: 600;
+            color: #1e293b;
+          }
+          table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 20px;
+          }
+          th, td {
+            padding: 10px;
+            text-align: left;
+            border-bottom: 1px solid #e2e8f0;
+          }
+          th {
+            background: #f8fafc;
+            font-weight: 600;
+            font-size: 11px;
+            color: #64748b;
+            text-transform: uppercase;
+          }
+          td {
+            font-size: 13px;
+          }
+          .ai-summary {
+            background: #eff6ff;
+            border-left: 4px solid #3b82f6;
+            padding: 15px;
+            margin-bottom: 20px;
+            border-radius: 6px;
+          }
+          .ai-summary h3 {
+            margin: 0 0 10px 0;
+            color: #1e40af;
+            font-size: 14px;
+          }
+          .ai-summary p {
+            margin: 0;
+            color: #475569;
+            font-size: 12px;
+            white-space: pre-wrap;
+          }
+          .footer {
+            margin-top: 30px;
+            padding-top: 15px;
+            border-top: 1px solid #e2e8f0;
+            text-align: center;
+            font-size: 11px;
+            color: #94a3b8;
+          }
+        </style>
+      </head>
+      <body>
+        <div class="header">
+          <div class="logo">⚡ FlowShare</div>
+          <div class="period">Reconciliation Report</div>
+          <div class="date">${periodRange}</div>
+        </div>
+
+        <div class="summary">
+          <div class="summary-card">
+            <div class="summary-label">Total Partners</div>
+            <div class="summary-value">${report.summary.totalPartners}</div>
+          </div>
+          <div class="summary-card">
+            <div class="summary-label">Input Volume</div>
+            <div class="summary-value">${report.summary.totalInputVolume.toLocaleString()} BBL</div>
+          </div>
+          <div class="summary-card">
+            <div class="summary-label">Terminal Volume</div>
+            <div class="summary-value">${report.summary.actualTerminalVolume.toLocaleString()} BBL</div>
+          </div>
+          <div class="summary-card">
+            <div class="summary-label">Volume Loss/Gain</div>
+            <div class="summary-value">${report.summary.totalVolumeLoss.toLocaleString()} BBL</div>
+          </div>
+          <div class="summary-card">
+            <div class="summary-label">Shrinkage</div>
+            <div class="summary-value">${Math.abs(report.summary.shrinkagePercentage).toFixed(2)}%</div>
+          </div>
+          <div class="summary-card">
+            <div class="summary-label">Allocated Volume</div>
+            <div class="summary-value">${report.summary.totalAllocatedVolume.toLocaleString()} BBL</div>
+          </div>
+        </div>
+
+        ${report.reconciliation.ai_summary ? `
+          <div class="ai-summary">
+            <h3>🤖 AI-Powered Executive Summary</h3>
+            <p>${report.reconciliation.ai_summary}</p>
+          </div>
+        ` : ''}
+
+        <table>
+          <thead>
+            <tr>
+              <th>Partner</th>
+              <th>Input Volume</th>
+              <th>Allocated Volume</th>
+              <th>Gain/Loss</th>
+              <th>Share</th>
+              <th>Efficiency</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${report.allocations.map(allocation => {
+              const efficiency = (allocation.allocated_volume / Math.max(allocation.input_volume, 1)) * 100;
+              return `
+                <tr>
+                  <td>${allocation.partner}</td>
+                  <td>${allocation.input_volume.toLocaleString()} bbl</td>
+                  <td>${allocation.allocated_volume.toLocaleString()} bbl</td>
+                  <td>${Math.abs(allocation.volume_loss || 0).toLocaleString()} bbl</td>
+                  <td>${allocation.percentage.toFixed(2)}%</td>
+                  <td>${efficiency.toFixed(1)}%</td>
+                </tr>
+              `;
+            }).join('')}
+          </tbody>
+        </table>
+
+        <div class="footer">
+          Generated on ${new Date().toLocaleString()} • FlowShare Reconciliation System<br>
+          Run Date: ${new Date(report.reconciliation.timestamp).toLocaleDateString()}
+        </div>
+      </body>
+      </html>
+    `;
+
+    // Open print dialog
+    const printWindow = window.open('', '_blank');
+    if (printWindow) {
+      printWindow.document.write(printContent);
+      printWindow.document.close();
+      printWindow.focus();
+      setTimeout(() => {
+        printWindow.print();
+      }, 250);
+    }
   };
 
   // Calculate statistics
@@ -1121,18 +1329,26 @@ const ReconciliationPage: React.FC = () => {
               </div>
             )}
 
-            <div className="flex gap-3 pt-4">
-              {userData?.role === "admin" ? (
-                <button
-                  onClick={() => exportReport(selectedReport)}
-                  className="flex cursor-pointer items-center space-x-2 bg-gradient-to-r from-green-600 to-emerald-600 text-white py-3 px-4 rounded-xl font-medium hover:from-green-700 hover:to-emerald-700 transition-all duration-300"
-                >
-                  <Download className="w-4 h-4" />
-                  <span>Export Report</span>
-                </button>
-              ) : (
-                ""
-              )}
+            <div className="flex gap-3 pt-4 flex-wrap">
+              {/* PDF Download */}
+              <button
+                onClick={() => exportReportPDF(selectedReport)}
+                className="flex cursor-pointer items-center space-x-2 bg-gradient-to-r from-red-600 to-pink-600 text-white py-3 px-4 rounded-xl font-medium hover:from-red-700 hover:to-pink-700 transition-all duration-300"
+              >
+                <Download className="w-4 h-4" />
+                <span>Download PDF</span>
+              </button>
+
+              {/* CSV Download */}
+              <button
+                onClick={() => exportReportCSV(selectedReport)}
+                className="flex cursor-pointer items-center space-x-2 bg-gradient-to-r from-green-600 to-emerald-600 text-white py-3 px-4 rounded-xl font-medium hover:from-green-700 hover:to-emerald-700 transition-all duration-300"
+              >
+                <Download className="w-4 h-4" />
+                <span>Download CSV</span>
+              </button>
+
+              {/* Close Button */}
               <button
                 onClick={() => setShowReportModal(false)}
                 className={`${COLORS.background.glass} ${COLORS.text.primary} py-3 px-4 rounded-xl font-medium hover:${COLORS.background.glassHover} transition-all duration-300 ${COLORS.border.light} border`}
