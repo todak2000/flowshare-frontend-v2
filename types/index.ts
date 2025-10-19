@@ -77,6 +77,7 @@ export interface ReconciliationRun {
   triggered_by: string;
   created_at: Date;
   hash: string;
+  ai_summary?: string; // AI-generated reconciliation summary
 }
 
 export interface AllocationResult {
