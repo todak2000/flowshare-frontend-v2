@@ -1,7 +1,8 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import React from 'react';
-import { Edit, Trash2 } from 'lucide-react';
+import { Edit, Trash2, Database } from 'lucide-react';
 import { ProductionEntry } from '../types';
-import LoadingSpinner from './LoadingSpinner';
+import { DataTable } from './tables/DataTable';
 
 interface ProductionTableProps {
   data: ProductionEntry[];
@@ -11,7 +12,7 @@ interface ProductionTableProps {
   onDelete: (id: string) => void;
 }
 
- const ProductionTable: React.FC<ProductionTableProps> = ({
+const ProductionTable: React.FC<ProductionTableProps> = ({
   data,
   loading,
   canEdit,
@@ -24,81 +25,89 @@ interface ProductionTableProps {
       : new Date(timestamp).toLocaleDateString();
   };
 
-  if (loading) {
-    return <LoadingSpinner message="Loading entries..." />;
+  const columns: any[] = [
+    {
+      key: "timestamp",
+      label: "Date",
+      sortable: true,
+      render: (val: Date | string) => formatDate(val),
+      width: "15%",
+    },
+    {
+      key: "gross_volume_bbl",
+      label: "Volume (BBL)",
+      sortable: true,
+      render: (val: number) => val.toLocaleString(),
+      width: "18%",
+    },
+    {
+      key: "bsw_percent",
+      label: "BSW %",
+      sortable: true,
+      render: (val: number) => `${val}%`,
+      width: "15%",
+    },
+    {
+      key: "temperature_degF",
+      label: "Temp (°F)",
+      sortable: true,
+      render: (val: number) => `${val}°F`,
+      width: "15%",
+    },
+    {
+      key: "api_gravity",
+      label: "API Gravity (°API)",
+      sortable: true,
+      render: (val: number) => `${val} PSI`,
+      width: "20%",
+    },
+  ];
+
+  if (canEdit) {
+    columns.push({
+      key: "actions",
+      label: "Actions",
+      sortable: false,
+      render: (_: any, entry: ProductionEntry) => (
+        <div className="flex gap-2">
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onEdit(entry);
+            }}
+            aria-label={`Edit entry from ${formatDate(entry.timestamp)}`}
+            className="text-blue-400 hover:text-blue-300 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 rounded p-1"
+          >
+            <Edit size={18} aria-hidden="true" />
+          </button>
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onDelete(entry.id);
+            }}
+            aria-label={`Delete entry from ${formatDate(entry.timestamp)}`}
+            className="text-red-400 hover:text-red-300 transition-colors focus:outline-none focus:ring-2 focus:ring-red-500 rounded p-1"
+          >
+            <Trash2 size={18} aria-hidden="true" />
+          </button>
+        </div>
+      ),
+      width: "17%",
+    });
   }
 
   return (
-    <div className="bg-white rounded-xl shadow-sm border border-gray-200">
-      <div className="overflow-x-auto">
-        <table className="w-full" aria-label="Production entries table">
-          <caption className="sr-only">
-            Production entries showing date, volume, BSW percentage, temperature, and API gravity
-          </caption>
-          <thead>
-            <tr className="border-b border-gray-200 bg-gray-50">
-              <th scope="col" className="text-left p-4 font-semibold text-gray-700">Date</th>
-              <th scope="col" className="text-left p-4 font-semibold text-gray-700">Volume (BBL)</th>
-              <th scope="col" className="text-left p-4 font-semibold text-gray-700">BSW %</th>
-              <th scope="col" className="text-left p-4 font-semibold text-gray-700">Temp (°F)</th>
-              <th scope="col" className="text-left p-4 font-semibold text-gray-700">API Gravity (°API)</th>
-              {canEdit && (
-                <th scope="col" className="text-left p-4 font-semibold text-gray-700">Actions</th>
-              )}
-            </tr>
-          </thead>
-          <tbody>
-            {data.length === 0 ? (
-              <tr>
-                <td
-                  colSpan={canEdit ? 6 : 5}
-                  className="text-center py-8 text-gray-500"
-                >
-                  No production entries found
-                </td>
-              </tr>
-            ) : (
-              data.map((entry) => (
-                <tr
-                  key={entry.id}
-                  className="border-b border-gray-100 hover:bg-gray-50"
-                >
-                  <td className="p-4 text-gray-900">
-                    {formatDate(entry.timestamp)}
-                  </td>
-                  <td className="p-4 text-gray-900">
-                    {entry.gross_volume_bbl.toLocaleString()}
-                  </td>
-                  <td className="p-4 text-gray-900">{entry.bsw_percent}%</td>
-                  <td className="p-4 text-gray-900">{entry.temperature_degF}°F</td>
-                  <td className="p-4 text-gray-900">{entry.api_gravity} PSI</td>
-                  {canEdit && (
-                    <td className="p-4">
-                      <div className="flex gap-2">
-                        <button
-                          onClick={() => onEdit(entry)}
-                          aria-label={`Edit entry from ${formatDate(entry.timestamp)}`}
-                          className="text-blue-600 hover:text-blue-800 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 rounded p-1"
-                        >
-                          <Edit size={18} aria-hidden="true" />
-                        </button>
-                        <button
-                          onClick={() => onDelete(entry.id)}
-                          aria-label={`Delete entry from ${formatDate(entry.timestamp)}`}
-                          className="text-red-600 hover:text-red-800 transition-colors focus:outline-none focus:ring-2 focus:ring-red-500 rounded p-1"
-                        >
-                          <Trash2 size={18} aria-hidden="true" />
-                        </button>
-                      </div>
-                    </td>
-                  )}
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
-      </div>
+    <div className="bg-white/10 rounded-xl border border-white/10 overflow-hidden">
+      <DataTable
+        data={data}
+        columns={columns}
+        loading={loading}
+        emptyMessage="No production entries found"
+        emptyIcon={<Database className="w-16 h-16 text-gray-400 opacity-50 mx-auto" />}
+        aria-label="Production entries showing date, volume, BSW percentage, temperature, and API gravity"
+      />
     </div>
   );
 };
-export default ProductionTable
+
+export default ProductionTable;
