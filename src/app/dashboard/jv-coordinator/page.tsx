@@ -21,7 +21,6 @@ import {
 import { COLORS } from "../../../../component/Home";
 import LoadingSpinner from "../../../../component/LoadingSpinner";
 import { useUser } from "../../../../hook/useUser";
-import { formatDateForInput } from "../../../../utils/date";
 import { firebaseService } from "../../../../lib/firebase-service";
 import { Modal } from "../../../../component/Modal";
 
@@ -60,7 +59,8 @@ interface TerminalFormData {
   final_volume_bbl: string;
   temperature_degF: string;
   api_gravity: string;
-  timestamp: string;
+  month: number;
+  year: number;
 }
 
 interface ReconciliationDateRange {
@@ -328,12 +328,14 @@ const JVCoordinatorDashboard: React.FC = () => {
   const [showTerminalForm, setShowTerminalForm] = useState<boolean>(false);
   const [showReconcileForm, setShowReconcileForm] = useState<boolean>(false);
 
+  const currentDate = new Date();
   const [terminalFormData, setTerminalFormData] = useState<TerminalFormData>({
     initial_volume_bbl: "",
     final_volume_bbl: "",
     temperature_degF: "",
     api_gravity: "",
-    timestamp: formatDateForInput(new Date()),
+    month: currentDate.getMonth(), // 0-11 (January is 0)
+    year: currentDate.getFullYear(),
   });
 
   // Default to current month
@@ -372,26 +374,38 @@ const JVCoordinatorDashboard: React.FC = () => {
     }
   };
 
+  // Convert month and year to last day of month at 23:59:59
+  const getLastDayOfMonth = (month: number, year: number): Date => {
+    // Create date for first day of next month, then subtract 1 millisecond
+    const lastDay = new Date(year, month + 1, 0, 23, 59, 59, 999);
+    return lastDay;
+  };
+
   const handleTerminalSubmit = async () => {
     setLoading(true);
     try {
+      // Convert month/year to last day of month at 23:59:59
+      const timestamp = getLastDayOfMonth(terminalFormData.month, terminalFormData.year);
+
       const submissionData: CreateTerminalReceiptData = {
         initial_volume_bbl: parseFloat(terminalFormData.initial_volume_bbl),
         final_volume_bbl: parseFloat(terminalFormData.final_volume_bbl),
         temperature_degF: parseFloat(terminalFormData.temperature_degF),
         api_gravity: parseFloat(terminalFormData.api_gravity),
-        timestamp: new Date(terminalFormData.timestamp),
+        timestamp: timestamp,
         created_by: auth.uid,
       };
 
       await firebaseService.createTerminalReceipt(submissionData);
       setShowTerminalForm(false);
+      const resetDate = new Date();
       setTerminalFormData({
         initial_volume_bbl: "",
         final_volume_bbl: "",
         api_gravity: "",
         temperature_degF: "",
-        timestamp: formatDateForInput(new Date()),
+        month: resetDate.getMonth(),
+        year: resetDate.getFullYear(),
       });
       await loadDashboardData();
     } catch (error: any) {
@@ -637,16 +651,69 @@ const JVCoordinatorDashboard: React.FC = () => {
         title="Add Terminal Receipt"
       >
         <div className="space-y-6">
-          <InputField
-            label="Date & Time (Select the last day of the month e.g. 31 July 11:59pm)"
-            type="datetime-local"
-            value={terminalFormData.timestamp}
-            onChange={(value) =>
-              setTerminalFormData((prev) => ({ ...prev, timestamp: value }))
-            }
-            icon={Calendar}
-            disabled={loading}
-          />
+          {/* Month and Year Selector */}
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-200 mb-2">
+                Month
+              </label>
+              <select
+                value={terminalFormData.month}
+                onChange={(e) =>
+                  setTerminalFormData((prev) => ({
+                    ...prev,
+                    month: parseInt(e.target.value),
+                  }))
+                }
+                className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-transparent"
+              >
+                <option value={0}>January</option>
+                <option value={1}>February</option>
+                <option value={2}>March</option>
+                <option value={3}>April</option>
+                <option value={4}>May</option>
+                <option value={5}>June</option>
+                <option value={6}>July</option>
+                <option value={7}>August</option>
+                <option value={8}>September</option>
+                <option value={9}>October</option>
+                <option value={10}>November</option>
+                <option value={11}>December</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-200 mb-2">
+                Year
+              </label>
+              <input
+                type="number"
+                value={terminalFormData.year}
+                onChange={(e) =>
+                  setTerminalFormData((prev) => ({
+                    ...prev,
+                    year: parseInt(e.target.value),
+                  }))
+                }
+                className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-transparent"
+                placeholder="Enter year"
+                min="2020"
+                max="2100"
+              />
+            </div>
+          </div>
+          <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-3">
+            <div className="flex items-start space-x-2">
+              <Info className="w-4 h-4 text-blue-400 mt-0.5 flex-shrink-0" />
+              <p className="text-xs text-blue-200">
+                Terminal receipt will be recorded for the last day of{" "}
+                {new Date(terminalFormData.year, terminalFormData.month).toLocaleDateString(
+                  "en-US",
+                  { month: "long", year: "numeric" }
+                )}{" "}
+                at 11:59 PM
+              </p>
+            </div>
+          </div>
 
           <InputField
             label="Initial Volume (BBL)"

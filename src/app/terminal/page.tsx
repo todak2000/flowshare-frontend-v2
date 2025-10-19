@@ -7,7 +7,6 @@ import { firebaseService } from '../../../lib/firebase-service';
 import { TerminalReceipt, CreateTerminalReceiptData } from '../../../types';
 import LoadingSpinner from '../../../component/LoadingSpinner';
 import SummaryCard from '../../../component/SummaryCard';
-import { formatDateForInput } from '../../../utils/date';
 import { Modal } from '../../../component/Modal';
 
 export default function TerminalReceiptPage() {
@@ -17,11 +16,13 @@ export default function TerminalReceiptPage() {
   const [loading, setLoading] = useState(false);
   const [showForm, setShowForm] = useState(false);
   const [editingReceipt, setEditingReceipt] = useState<TerminalReceipt | null>(null);
+  const currentDate = new Date();
   const [formData, setFormData] = useState({
     initial_volume_bbl: '',
     final_volume_bbl: '',
     temperature_degF: '',
-    timestamp: formatDateForInput(new Date()),
+    month: currentDate.getMonth(), // 0-11 (January is 0)
+    year: currentDate.getFullYear(),
   });
 
   useEffect(() => {
@@ -45,14 +46,24 @@ export default function TerminalReceiptPage() {
     }
   };
 
+  // Convert month and year to last day of month at 23:59:59
+  const getLastDayOfMonth = (month: number, year: number): Date => {
+    // Create date for first day of next month, then subtract 1 millisecond
+    const lastDay = new Date(year, month + 1, 0, 23, 59, 59, 999);
+    return lastDay;
+  };
+
   const handleSubmit = async () => {
     setLoading(true);
     try {
+      // Convert month/year to last day of month at 23:59:59
+      const timestamp = getLastDayOfMonth(formData.month, formData.year);
+
       const submissionData: CreateTerminalReceiptData = {
         initial_volume_bbl: parseFloat(formData.initial_volume_bbl),
         final_volume_bbl: parseFloat(formData.final_volume_bbl),
         temperature_degF: parseFloat(formData.temperature_degF),
-        timestamp: new Date(formData.timestamp),
+        timestamp: timestamp,
         created_by: auth.uid,
       };
 
@@ -74,11 +85,13 @@ export default function TerminalReceiptPage() {
 
   const handleEdit = (receipt: TerminalReceipt) => {
     setEditingReceipt(receipt);
+    const receiptDate = new Date(receipt.timestamp);
     setFormData({
       initial_volume_bbl: receipt.initial_volume_bbl.toString(),
       final_volume_bbl: receipt.final_volume_bbl.toString(),
       temperature_degF: receipt.temperature_degF.toString(),
-      timestamp: formatDateForInput(new Date(receipt.timestamp)),
+      month: receiptDate.getMonth(),
+      year: receiptDate.getFullYear(),
     });
     setShowForm(true);
   };
@@ -97,11 +110,13 @@ export default function TerminalReceiptPage() {
   const handleCloseForm = () => {
     setShowForm(false);
     setEditingReceipt(null);
+    const currentDate = new Date();
     setFormData({
       initial_volume_bbl: '',
       final_volume_bbl: '',
       temperature_degF: '',
-      timestamp: formatDateForInput(new Date()),
+      month: currentDate.getMonth(),
+      year: currentDate.getFullYear(),
     });
   };
 
@@ -259,16 +274,51 @@ export default function TerminalReceiptPage() {
         title={editingReceipt ? 'Edit Terminal Receipt' : 'Add Terminal Receipt'}
       >
         <div className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Date & Time
-            </label>
-            <input
-              type="datetime-local"
-              value={formData.timestamp}
-              onChange={(e) => setFormData(prev => ({ ...prev, timestamp: e.target.value }))}
-              className="w-full border border-gray-300 rounded-md p-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Month
+              </label>
+              <select
+                value={formData.month}
+                onChange={(e) => setFormData(prev => ({ ...prev, month: parseInt(e.target.value) }))}
+                className="w-full border border-gray-300 rounded-md p-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value={0}>January</option>
+                <option value={1}>February</option>
+                <option value={2}>March</option>
+                <option value={3}>April</option>
+                <option value={4}>May</option>
+                <option value={5}>June</option>
+                <option value={6}>July</option>
+                <option value={7}>August</option>
+                <option value={8}>September</option>
+                <option value={9}>October</option>
+                <option value={10}>November</option>
+                <option value={11}>December</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Year
+              </label>
+              <input
+                type="number"
+                value={formData.year}
+                onChange={(e) => setFormData(prev => ({ ...prev, year: parseInt(e.target.value) }))}
+                className="w-full border border-gray-300 rounded-md p-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                placeholder="Enter year"
+                min="2020"
+                max="2100"
+              />
+            </div>
+          </div>
+          <div className="bg-gray-50 p-3 rounded-md">
+            <p className="text-xs text-gray-600">
+              <strong>ℹ️ Note:</strong> Terminal receipt will be recorded for the last day of {
+                new Date(formData.year, formData.month).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
+              } at 11:59 PM
+            </p>
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
