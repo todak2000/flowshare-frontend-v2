@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { memo } from 'react';
 import { TrendingUp } from 'lucide-react';
 import { COLORS } from '../Home';
 
@@ -15,7 +15,8 @@ export interface SummaryCardProps {
   'aria-label'?: string;
 }
 
-export const SummaryCard: React.FC<SummaryCardProps> = ({
+// FIX: Define the component as a named function first.
+function SummaryCard({
   title,
   value,
   unit = "",
@@ -23,7 +24,7 @@ export const SummaryCard: React.FC<SummaryCardProps> = ({
   icon: Icon,
   trend,
   'aria-label': ariaLabel,
-}) => {
+}: SummaryCardProps) {
   const colorClasses = {
     blue: "from-blue-500/20 to-cyan-500/20 border-blue-500/30",
     green: "from-green-500/20 to-emerald-500/20 border-green-500/30",
@@ -85,6 +86,25 @@ export const SummaryCard: React.FC<SummaryCardProps> = ({
       </div>
     </div>
   );
-};
+}
+
+// FIX: Now wrap the named function in memo.
+export const MemoizedSummaryCard = memo(SummaryCard, (prevProps, nextProps) => {
+  // Your custom comparison function remains the same
+  return (
+    prevProps.title === nextProps.title &&
+    prevProps.value === nextProps.value &&
+    prevProps.unit === nextProps.unit &&
+    prevProps.color === nextProps.color &&
+    prevProps.icon === nextProps.icon &&
+    prevProps['aria-label'] === nextProps['aria-label'] &&
+    (prevProps.trend === nextProps.trend ||
+      (prevProps.trend?.value === nextProps.trend?.value &&
+       prevProps.trend?.isPositive === nextProps.trend?.isPositive))
+  );
+});
+
+// Optional: You can explicitly set the display name
+SummaryCard.displayName = 'SummaryCard';
 
 export default SummaryCard;

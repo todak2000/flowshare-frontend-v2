@@ -17,6 +17,7 @@ import {
   useReconciliationPeriodSummary,
   useTriggerReconciliation,
 } from "../../../lib/queries/useReconciliationData";
+import { ErrorBoundary } from "../../../component/ErrorBoundary";
 
 
 // Main Reconciliation Page Component
@@ -118,7 +119,8 @@ const ReconciliationPage: React.FC = () => {
   }
 
   return (
-    <div className={`min-h-screen ${COLORS.background.gradient} pt-20`}>
+    <ErrorBoundary>
+      <div className={`min-h-screen ${COLORS.background.gradient} pt-20`}>
       <div className="max-w-7xl mx-auto p-6">
         {/* Header */}
         <div className="mb-8">
@@ -180,6 +182,7 @@ const ReconciliationPage: React.FC = () => {
         report={selectedReport || null}
       />
     </div>
+    </ErrorBoundary>
   );
 };
 

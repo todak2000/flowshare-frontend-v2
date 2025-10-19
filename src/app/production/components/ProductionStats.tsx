@@ -1,5 +1,5 @@
 import React from 'react';
-import { SummaryCard } from '../../../../component/cards/SummaryCard';
+import SummaryCard  from '../../../../component/cards/SummaryCard';
 import { BarChart3, Droplets, Thermometer, Database } from 'lucide-react';
 import { formatVolume } from '../../../../utils/formatVolume';
 

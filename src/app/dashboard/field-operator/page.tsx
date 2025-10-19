@@ -23,7 +23,7 @@ import { firebaseService } from "../../../../lib/firebase-service";
 import { permissionsList } from "../../../../constants";
 import LoadingSpinner from "../../../../component/LoadingSpinner";
 import { Modal } from "../../../../component/Modal";
-import { SummaryCard } from "../../../../component/cards/SummaryCard";
+import SummaryCard from "../../../../component/cards/SummaryCard";
 import { COLORS } from "../../../../component/Home";
 import { ProductionFormData } from "../../../../component/formField";
 import { CreateProductionEntryData, ProductionEntry } from "../../../../types";

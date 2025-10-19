@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
-import { useState } from "react";
+import { useState, memo } from "react";
 import { ArrowUp, ArrowDown } from "lucide-react";
 
 interface Column<T> {
@@ -21,7 +21,7 @@ interface DataTableProps<T> {
   "aria-label": string;
 }
 
-export function DataTable<T extends { id: string }>({
+function DataTableComponent<T extends { id: string }>({
   data,
   columns,
   onRowClick,
@@ -169,3 +169,51 @@ export function DataTable<T extends { id: string }>({
     </div>
   );
 }
+
+// Memoized version with custom comparison
+export const DataTable = memo(DataTableComponent, (prevProps, nextProps) => {
+  // Compare primitive props
+  if (
+    prevProps.loading !== nextProps.loading ||
+    prevProps.emptyMessage !== nextProps.emptyMessage ||
+    prevProps["aria-label"] !== nextProps["aria-label"] ||
+    prevProps.onRowClick !== nextProps.onRowClick ||
+    prevProps.emptyIcon !== nextProps.emptyIcon
+  ) {
+    return false;
+  }
+
+  // Compare data array length and items
+  if (prevProps.data.length !== nextProps.data.length) {
+    return false;
+  }
+
+  // Deep compare data items by id (shallow comparison is sufficient for most cases)
+  for (let i = 0; i < prevProps.data.length; i++) {
+    if (prevProps.data[i].id !== nextProps.data[i].id) {
+      return false;
+    }
+  }
+
+  // Compare columns array
+  if (prevProps.columns.length !== nextProps.columns.length) {
+    return false;
+  }
+
+  for (let i = 0; i < prevProps.columns.length; i++) {
+    const prevCol = prevProps.columns[i];
+    const nextCol = nextProps.columns[i];
+
+    if (
+      prevCol.key !== nextCol.key ||
+      prevCol.label !== nextCol.label ||
+      prevCol.sortable !== nextCol.sortable ||
+      prevCol.width !== nextCol.width ||
+      prevCol.render !== nextCol.render
+    ) {
+      return false;
+    }
+  }
+
+  return true;
+}) as typeof DataTableComponent;

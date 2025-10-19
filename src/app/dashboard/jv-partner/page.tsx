@@ -31,7 +31,7 @@ import {
   Cell,
 } from "recharts";
 import { COLORS } from "../../../../component/Home";
-import { SummaryCard } from "../../../../component/cards/SummaryCard";
+import SummaryCard from "../../../../component/cards/SummaryCard";
 import { ChartDataPoint } from "@/app/production/page";
 import { firebaseService } from "../../../../lib/firebase-service";
 import { useUser } from "../../../../hook/useUser";

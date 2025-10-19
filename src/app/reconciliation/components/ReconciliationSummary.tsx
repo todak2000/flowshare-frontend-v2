@@ -1,4 +1,4 @@
-import { SummaryCard } from "../../../../component/cards/SummaryCard";
+import SummaryCard from "../../../../component/cards/SummaryCard";
 import { Database, CheckCircle, BarChart3 } from "lucide-react";
 
 interface ReconciliationSummaryProps {

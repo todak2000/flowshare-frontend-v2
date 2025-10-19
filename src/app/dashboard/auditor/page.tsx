@@ -14,7 +14,7 @@ import {
   AllocationResult,
 } from "../../../../types";
 import LoadingSpinner from "../../../../component/LoadingSpinner";
-import { SummaryCard } from "../../../../component/cards/SummaryCard";
+import SummaryCard from "../../../../component/cards/SummaryCard";
 import {
   BarChart,
   Bar,
@@ -415,8 +415,7 @@ export default function AuditorDashboard() {
                       {
                         productionEntries.filter(
                           (entry) =>
-                            entry.api_gravity >= 10 &&
-                            entry.api_gravity <= 36
+                            entry.api_gravity >= 10 && entry.api_gravity <= 36
                         ).length
                       }
                     </span>
