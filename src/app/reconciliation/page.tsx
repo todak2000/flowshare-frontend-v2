@@ -540,42 +540,6 @@ const ReconciliationPage: React.FC = () => {
           />
         </div>
 
-        {/* Action Bar */}
-        {userData?.role === "jv_coordinator" ? (
-          <div
-            className={`${COLORS.background.card} backdrop-blur-xl ${COLORS.border.light} border rounded-2xl p-6 mb-8`}
-          >
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center space-y-4 sm:space-y-0">
-              <div className="flex items-start space-x-4">
-                <div
-                  className={`w-12 h-12 rounded-xl bg-gradient-to-br ${COLORS.primary.blue[600]} ${COLORS.primary.purple[600]} flex items-center justify-center`}
-                >
-                  <Workflow className="w-6 h-6 text-white" />
-                </div>
-                <div>
-                  <h3
-                    className={`text-lg font-semibold ${COLORS.text.primary}`}
-                  >
-                    Period Reconciliation
-                  </h3>
-                  <p className={`text-sm ${COLORS.text.secondary}`}>
-                    Run reconciliations for a specific period (usually monthly)
-                  </p>
-                </div>
-              </div>
-              <button
-                onClick={() => setShowRunForm(true)}
-                className={`flex items-center space-x-2 px-6 py-3 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-xl hover:from-green-700 hover:to-emerald-700 transition-all duration-300 transform hover:scale-[1.02]`}
-              >
-                <Play className="w-4 h-4" />
-                <span>Run Reconciliation</span>
-              </button>
-            </div>
-          </div>
-        ) : (
-          ""
-        )}
-
         {/* Reconciliation Runs Table */}
         <div
           className={`${COLORS.background.card} backdrop-blur-xl ${COLORS.border.light} border rounded-2xl overflow-hidden`}
