@@ -4,6 +4,7 @@ import NavigationHeader from "../../component/NavigationHeader";
 import "./globals.css";
 import { COLORS } from "../../component/Home";
 import { NotificationsProvider } from "../../lib/notifications-context";
+import { Providers } from "./providers";
 
 export default function RootLayout({
   children,
@@ -17,10 +18,12 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={` antialiased`}>
-        <NotificationsProvider>
-          {!hideNavigation && <NavigationHeader />}
-          <main className={`${hideNavigation ? "" : "pt-0"} ${COLORS.background.gradient} min-h-screen h-screen`}>{children}</main>
-        </NotificationsProvider>
+        <Providers>
+          <NotificationsProvider>
+            {!hideNavigation && <NavigationHeader />}
+            <main className={`${hideNavigation ? "" : "pt-0"} ${COLORS.background.gradient} min-h-screen h-screen`}>{children}</main>
+          </NotificationsProvider>
+        </Providers>
       </body>
     </html>
   );

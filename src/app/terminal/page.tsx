@@ -3,19 +3,29 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useUser } from '../../../hook/useUser';
-import { firebaseService } from '../../../lib/firebase-service';
 import { TerminalReceipt, CreateTerminalReceiptData } from '../../../types';
 import LoadingSpinner from '../../../component/LoadingSpinner';
 import SummaryCard from '../../../component/SummaryCard';
 import { Modal } from '../../../component/Modal';
 import TerminalReceiptTable from '../../../component/TerminalReceiptTable';
 import { Database, BarChart3, Thermometer } from 'lucide-react';
+import {
+  useTerminalReceiptStats,
+  useCreateTerminalReceipt,
+  useUpdateTerminalReceipt,
+  useDeleteTerminalReceipt,
+} from '../../../lib/queries/useTerminalReceipts';
 
 export default function TerminalReceiptPage() {
   const { auth, data: userData, loading: userLoading } = useUser();
   const router = useRouter();
-  const [terminalReceipts, setTerminalReceipts] = useState<TerminalReceipt[]>([]);
-  const [loading, setLoading] = useState(false);
+
+  // React Query hooks
+  const { data: stats, receipts, isLoading: receiptsLoading } = useTerminalReceiptStats();
+  const createMutation = useCreateTerminalReceipt();
+  const updateMutation = useUpdateTerminalReceipt();
+  const deleteMutation = useDeleteTerminalReceipt();
+
   const [showForm, setShowForm] = useState(false);
   const [editingReceipt, setEditingReceipt] = useState<TerminalReceipt | null>(null);
   const currentDate = new Date();
@@ -32,21 +42,10 @@ export default function TerminalReceiptPage() {
       router.push('/onboarding/login');
       return;
     }
+  }, [userLoading, auth, router]);
 
-    loadTerminalReceipts();
-  }, [userLoading, auth, userData, router]);
-
-  const loadTerminalReceipts = async () => {
-    setLoading(true);
-    try {
-      const receipts = await firebaseService.getTerminalReceipts();
-      setTerminalReceipts(receipts);
-    } catch (error) {
-      console.error('Error loading terminal receipts:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
+  const terminalReceipts = receipts || [];
+  const loading = receiptsLoading || createMutation.isPending || updateMutation.isPending || deleteMutation.isPending;
 
   // Convert month and year to last day of month at 23:59:59
   const getLastDayOfMonth = (month: number, year: number): Date => {
@@ -56,7 +55,6 @@ export default function TerminalReceiptPage() {
   };
 
   const handleSubmit = async () => {
-    setLoading(true);
     try {
       // Convert month/year to last day of month at 23:59:59
       const timestamp = getLastDayOfMonth(formData.month, formData.year);
@@ -70,18 +68,18 @@ export default function TerminalReceiptPage() {
       };
 
       if (editingReceipt) {
-        await firebaseService.updateTerminalReceipt(editingReceipt.id, submissionData);
+        await updateMutation.mutateAsync({
+          id: editingReceipt.id,
+          data: submissionData,
+        });
       } else {
-        await firebaseService.createTerminalReceipt(submissionData);
+        await createMutation.mutateAsync(submissionData);
       }
 
       handleCloseForm();
-      await loadTerminalReceipts();
     } catch (error) {
       console.error('Error saving terminal receipt:', error);
       alert('Error saving terminal receipt. Please try again.');
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -101,8 +99,7 @@ export default function TerminalReceiptPage() {
   const handleDelete = async (id: string) => {
     if (window.confirm('Are you sure you want to delete this terminal receipt?')) {
       try {
-        await firebaseService.deleteTerminalReceipt(id);
-        await loadTerminalReceipts();
+        await deleteMutation.mutateAsync(id);
       } catch (error) {
         console.error('Error deleting receipt:', error);
       }
@@ -122,10 +119,8 @@ export default function TerminalReceiptPage() {
     });
   };
 
-  const totalVolume = terminalReceipts.reduce((sum, receipt) => sum + receipt.final_volume_bbl, 0);
-  const averageTemperature = terminalReceipts.length > 0 
-    ? terminalReceipts.reduce((sum, receipt) => sum + receipt.temperature_degF, 0) / terminalReceipts.length 
-    : 0;
+  const totalVolume = stats?.totalVolume || 0;
+  const averageTemperature = stats?.averageTemperature || 0;
 
   if (userLoading) {
     return <LoadingSpinner  message="Loading user data..." />;
@@ -148,7 +143,7 @@ export default function TerminalReceiptPage() {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
           <SummaryCard
             title="Total Receipts"
-            value={terminalReceipts.length}
+            value={stats?.totalReceipts || 0}
             color="blue"
             icon={Database}
           />
