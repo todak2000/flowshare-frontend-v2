@@ -27,6 +27,7 @@ import { useUser } from "../../../hook/useUser";
 import { formatDateForInput } from "../../../utils/date";
 import { firebaseService } from "../../../lib/firebase-service";
 import LoadingSpinner from "../../../component/LoadingSpinner";
+import { SummaryCard } from "../../../component/cards/SummaryCard";
 import { ReconciliationReport, ReconciliationRun } from "../../../types";
 import { Timestamp } from "firebase/firestore";
 import { formatFirebaseTimestampRange } from "../../../utils/timestampToPeriod";
@@ -60,76 +61,6 @@ interface ReconciliationDateRange {
 }
 
 // Reusable Components
-interface SummaryCardProps {
-  title: string;
-  value: number | string;
-  unit?: string;
-  color: "blue" | "green" | "orange" | "purple" | "red";
-  icon: React.ComponentType<{ className?: string }>;
-  trend?: {
-    value: number;
-    isPositive: boolean;
-  };
-}
-
-const SummaryCard: React.FC<SummaryCardProps> = ({
-  title,
-  value,
-  unit = "",
-  color,
-  icon: Icon,
-  trend,
-}) => {
-  const colorClasses = {
-    blue: "from-blue-500/20 to-cyan-500/20 border-blue-500/30",
-    green: "from-green-500/20 to-emerald-500/20 border-green-500/30",
-    orange: "from-orange-500/20 to-yellow-500/20 border-orange-500/30",
-    purple: "from-purple-500/20 to-pink-500/20 border-purple-500/30",
-    red: "from-red-500/20 to-rose-500/20 border-red-500/30",
-  };
-
-  const iconColors = {
-    blue: "text-blue-400",
-    green: "text-green-400",
-    orange: "text-orange-400",
-    purple: "text-purple-400",
-    red: "text-red-400",
-  };
-
-  return (
-    <div
-      className={`bg-gradient-to-br ${colorClasses[color]} backdrop-blur-sm border rounded-2xl p-6 transition-all duration-300 hover:scale-105`}
-    >
-      <div className="flex items-center justify-between mb-4">
-        <div
-          className={`w-12 h-12 rounded-xl bg-white/10 flex items-center justify-center ${iconColors[color]}`}
-        >
-          <Icon className="w-6 h-6" />
-        </div>
-        {trend && (
-          <div
-            className={`flex items-center space-x-1 text-sm ${
-              trend.isPositive ? "text-green-400" : "text-red-400"
-            }`}
-          >
-            <TrendingUp
-              className={`w-4 h-4 ${trend.isPositive ? "" : "rotate-180"}`}
-            />
-            <span>{Math.abs(trend.value)}%</span>
-          </div>
-        )}
-      </div>
-      <div className="space-y-1">
-        <p className={`text-sm ${COLORS.text.muted}`}>{title}</p>
-        <p className={`text-2xl font-bold ${COLORS.text.primary}`}>
-          {typeof value === "number" ? value.toLocaleString() : value}
-          {unit}
-        </p>
-      </div>
-    </div>
-  );
-};
-
 interface InputFieldProps {
   label: string;
   type?: string;

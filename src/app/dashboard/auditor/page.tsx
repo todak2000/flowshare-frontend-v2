@@ -13,7 +13,7 @@ import {
   AllocationResult,
 } from "../../../../types";
 import LoadingSpinner from "../../../../component/LoadingSpinner";
-import SummaryCard from "../../../../component/SummaryCard";
+import { SummaryCard } from "../../../../component/cards/SummaryCard";
 import { formatDateForInput } from "../../../../utils/date";
 import {
   BarChart,
@@ -24,6 +24,7 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from "recharts";
+import { Activity, Users, Database, CheckCircle } from "lucide-react";
 
 export default function AuditorDashboard() {
   const { auth, data: userData, loading: userLoading } = useUser();
@@ -229,22 +230,26 @@ export default function AuditorDashboard() {
                 title="Total Actions"
                 value={totalActions}
                 color="blue"
+                icon={Activity}
               />
               <SummaryCard
                 title="Active Users"
                 value={uniqueUsers}
                 color="green"
+                icon={Users}
               />
               <SummaryCard
                 title="Data Changes"
                 value={dataIntegrityIssues}
                 color="orange"
+                icon={Database}
               />
               <SummaryCard
                 title="Reconciliation Rate"
                 value={reconciliationAccuracy.toFixed(1)}
                 color="purple"
                 unit="%"
+                icon={CheckCircle}
               />
             </div>
 
