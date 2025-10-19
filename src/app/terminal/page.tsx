@@ -15,9 +15,10 @@ import {
   useUpdateTerminalReceipt,
   useDeleteTerminalReceipt,
 } from '../../../lib/queries/useTerminalReceipts';
+import { ErrorBoundary } from '../../../component/ErrorBoundary';
 
 export default function TerminalReceiptPage() {
-  const { auth, data: userData, loading: userLoading } = useUser();
+  const { auth, loading: userLoading } = useUser();
   const router = useRouter();
 
   // React Query hooks
@@ -127,7 +128,8 @@ export default function TerminalReceiptPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <ErrorBoundary>
+      <div className="min-h-screen bg-gray-50">
       <div className="max-w-7xl mx-auto p-6">
         {/* Header */}
         <div className="mb-8">
@@ -308,5 +310,6 @@ export default function TerminalReceiptPage() {
         </div>
       </Modal>
     </div>
+    </ErrorBoundary>
   );
 }

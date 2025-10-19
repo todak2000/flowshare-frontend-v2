@@ -1,7 +1,7 @@
 /* eslint-disable react-hooks/exhaustive-deps */
 /* eslint-disable @typescript-eslint/no-unused-vars */
 "use client";
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import {
   BarChart3,
@@ -28,6 +28,7 @@ import {
   sendNotification,
 } from "../../../lib/agents-api";
 import { ProductionChart } from "../../../component/ProductionChart";
+import { ErrorBoundary } from "../../../component/ErrorBoundary";
 import { PartnerPieChart } from "../../../component/PartnerPieChart";
 import LoadingSpinner from "../../../component/LoadingSpinner";
 import { formatWithOrdinal } from "../../../utils/timestampToPeriod";
@@ -595,7 +596,9 @@ const ProductionDashboard: React.FC = () => {
   const [editingEntry, setEditingEntry] = useState<ProductionEntry | null>(
     null
   );
-  const [flaggedEntry, setFlaggedEntry] = useState<ProductionEntry | null>(null);
+  const [flaggedEntry, setFlaggedEntry] = useState<ProductionEntry | null>(
+    null
+  );
   const [showFlaggedModal, setShowFlaggedModal] = useState<boolean>(false);
   const { auth, data: userData, loading: userLoading } = useUser();
 
@@ -799,13 +802,16 @@ const ProductionDashboard: React.FC = () => {
                 bsw_percent: parseFloat(data.bsw_percent),
                 temperature_degF: parseFloat(data.temperature_degF),
                 api_gravity: parseFloat(data.api_gravity),
-                timestamp: typeof editingEntry.timestamp === 'string'
-                  ? editingEntry.timestamp
-                  : new Date(editingEntry.timestamp).toISOString(),
+                timestamp:
+                  typeof editingEntry.timestamp === "string"
+                    ? editingEntry.timestamp
+                    : new Date(editingEntry.timestamp).toISOString(),
               },
             };
 
-            const validationResult = await validateProductionEntry(validationRequest);
+            const validationResult = await validateProductionEntry(
+              validationRequest
+            );
             console.log("Revalidation result:", validationResult);
 
             // Update with new validation result
@@ -816,13 +822,23 @@ const ProductionDashboard: React.FC = () => {
             });
 
             if (!validationResult.flagged) {
-              alert("✅ Entry updated and validated successfully! Flag has been cleared.");
+              alert(
+                "✅ Entry updated and validated successfully! Flag has been cleared."
+              );
             } else {
-              alert(`⚠️ Entry updated but still flagged.\n\nAI Analysis: ${validationResult.ai_analysis || "Anomaly detected"}\n\nConfidence Score: ${validationResult.confidence_score?.toFixed(2) || "N/A"}`);
+              alert(
+                `⚠️ Entry updated but still flagged.\n\nAI Analysis: ${
+                  validationResult.ai_analysis || "Anomaly detected"
+                }\n\nConfidence Score: ${
+                  validationResult.confidence_score?.toFixed(2) || "N/A"
+                }`
+              );
             }
           } catch (revalidationError) {
             console.error("Error revalidating entry:", revalidationError);
-            alert("Entry updated but could not be revalidated. Please check manually.");
+            alert(
+              "Entry updated but could not be revalidated. Please check manually."
+            );
           }
         }
       } else {
@@ -996,6 +1012,15 @@ const ProductionDashboard: React.FC = () => {
     downloadCSV(filteredData);
   };
 
+  // Memoize date comparison
+  const isCurrentOrFutureMonth = useMemo(() => {
+    const now = new Date();
+    return (
+      selectedMonth.year === now.getFullYear() &&
+      selectedMonth.month >= now.getMonth() + 1
+    );
+  }, [selectedMonth.year, selectedMonth.month]);
+
   if (userLoading) {
     return (
       <div
@@ -1005,9 +1030,6 @@ const ProductionDashboard: React.FC = () => {
       </div>
     );
   }
-  const isCurrentOrFutureMonth =
-    selectedMonth.year === new Date().getFullYear() &&
-    selectedMonth.month >= new Date().getMonth() + 1;
 
   const handleMonthChange = (direction: "prev" | "next"): void => {
     setSelectedMonth((prev) => {
@@ -1026,319 +1048,329 @@ const ProductionDashboard: React.FC = () => {
   };
 
   return (
-    <div className={`min-h-screen ${COLORS.background.gradient} pt-20`}>
-      <div className="max-w-7xl mx-auto p-6">
-        {/* Header */}
-        <div className="mb-8">
-          <div className="flex items-center space-x-4 mb-4">
-            <div
-              className={`w-16 h-16 rounded-2xl bg-gradient-to-br ${COLORS.primary.blue[600]} ${COLORS.primary.purple[600]} flex items-center justify-center`}
-            >
-              <BarChart3 className="w-8 h-8 text-white" />
-            </div>
-            <div className="w-[60%] md:w-auto">
-              <p className={`${COLORS.text.secondary}`}>
-                Enter and view your company&#39;s production contributions
-              </p>
-            </div>
-          </div>
-        </div>
-
-        {/* Main Content Container */}
-        <div
-          className={`${COLORS.background.card} backdrop-blur-xl ${COLORS.border.light} border rounded-2xl mb-6 overflow-hidden`}
-        >
-          <TabNavigation
-            activeTab={activeTab}
-            onTabChange={setActiveTab}
-            handleMonthChange={handleMonthChange}
-            selectedMonth={selectedMonth}
-            isCurrentOrFutureMonth={isCurrentOrFutureMonth}
-            paginationInfo={getPaginationInfo()}
-            role={userData?.role as UserRole}
-            entriesCount={{
-              filtered: getPaginationInfo().itemsOnCurrentPage,
-              total: getPaginationInfo().totalItems,
-              // allEntries: allProductionData.length, // For showing month total
-            }}
-          />
-        </div>
-
-        {/* Tab Content */}
-        {activeTab === "dashboard" && (
-          <div className="space-y-6">
-            {/* Summary Stats */}
-            <ProductionStats
-              totalVolume={calculations.totalVolume}
-              averageBSW={calculations.averageBSW}
-              averageTemperature={calculations.averageTemperature}
-              averageGravity={calculations.averageGravity}
-            />
-
-            {/* Charts */}
-            <div
-              className={`grid grid-cols-1 ${
-                !["field_operator", "jv_partner"].includes(
-                  userData?.role as string
-                )
-                  ? "lg:grid-cols-2"
-                  : "lg:grid-cols-1"
-              }  gap-6`}
-            >
-              {/* Production Chart */}
-              <div className="space-y-3">
-                <ProductionChart
-                  data={calculations.chartData}
-                  title={`${new Date(
-                    selectedMonth.year,
-                    selectedMonth.month - 1
-                  ).toLocaleDateString("en-US", {
-                    year: "numeric",
-                    month: "long",
-                  })} Production Volume`}
-                />
+    <ErrorBoundary>
+      <div className={`min-h-screen ${COLORS.background.gradient} pt-20`}>
+        <div className="max-w-7xl mx-auto p-6">
+          {/* Header */}
+          <div className="mb-8">
+            <div className="flex items-center space-x-4 mb-4">
+              <div
+                className={`w-16 h-16 rounded-2xl bg-gradient-to-br ${COLORS.primary.blue[600]} ${COLORS.primary.purple[600]} flex items-center justify-center`}
+              >
+                <BarChart3 className="w-8 h-8 text-white" />
               </div>
-
-              {/* Partner Distribution */}
-
-              {!["field_operator", "jv_partner"].includes(
-                userData?.role as string
-              ) ? (
-                <div className="space-y-3">
-                  <PartnerPieChart
-                    data={calculations.partnerData}
-                    title={
-                      userData?.role === "jv_coordinator"
-                        ? "Volume by Partner"
-                        : "Your Volume"
-                    }
-                    colors={CHART_COLORS}
-                  />
-                </div>
-              ) : (
-                ""
-              )}
-            </div>
-          </div>
-        )}
-
-        {activeTab === "data" && (
-          <div
-            className={`${COLORS.background.card} backdrop-blur-xl ${COLORS.border.light} border rounded-2xl overflow-hidden`}
-          >
-            <div className="p-6 border-b border-white/10">
-              <div className="flex items-center space-x-3 justify-between">
-                <div className="flex space-x-3 items-center ">
-                  <Table className={`w-5 h-5 ${COLORS.primary.blue[400]}`} />
-                  <h3
-                    className={`text-lg font-semibold ${COLORS.text.primary}`}
-                  >
-                    Production Data Table
-                  </h3>
-                  <span
-                    className={`px-3 py-1 rounded-full text-xs ${COLORS.background.glassHover} ${COLORS.text.secondary}`}
-                  >
-                    {(() => {
-                      const info = getPaginationInfo();
-                      return `${info.startItem}-${info.endItem} of ${info.totalItems}`;
-                    })()}
-                  </span>
-
-                  {total > 31 && (
-                    <div className="flex items-center space-x-2 text-sm text-gray-400">
-                      <span>
-                        Page {getPaginationInfo().currentPage} of{" "}
-                        {getPaginationInfo().totalPages}
-                      </span>
-                    </div>
-                  )}
-                </div>
-                <PaginationComponent
-                  goToPreviousPage={goToPreviousPage}
-                  loading={loading}
-                  hasPrevious={hasPrevious}
-                  paginationInfo={getPaginationInfo()}
-                  currentPage={currentPageIndex}
-                  data={filteredData}
-                  goToNextPage={goToNextPage}
-                  hasMore={hasMore}
-                  total={total}
-                />
-                <p className="text-white">
-                  Total Production:{" "}
-                  <span
-                    className={`px-3 py-1 rounded-full text-xs ${COLORS.background.glassHover} ${COLORS.text.secondary}`}
-                  >
-                    {formatNumber(calculations.totalVolume)} bbls
-                  </span>
+              <div className="w-[60%] md:w-auto">
+                <p className={`${COLORS.text.secondary}`}>
+                  Enter and view your company&#39;s production contributions
                 </p>
               </div>
             </div>
-            <ProductionTable
-              data={filteredData}
-              loading={loading}
-              role={userData?.role as UserRole}
-              canEdit={
-                userData?.permissions.includes("edit_production_entry") || false
-              }
-              total={total}
-              currentPage={currentPageIndex}
-              onEdit={handleEdit}
-              onApprove={handleApproval}
-              onDelete={handleDelete}
-              onViewFlagged={(entry) => {
-                setFlaggedEntry(entry);
-                setShowFlaggedModal(true);
-              }}
-              goToPreviousPage={goToPreviousPage}
-              hasPrevious={hasPrevious}
-              hasMore={hasMore}
-              goToNextPage={goToNextPage}
+          </div>
+
+          {/* Main Content Container */}
+          <div
+            className={`${COLORS.background.card} backdrop-blur-xl ${COLORS.border.light} border rounded-2xl mb-6 overflow-hidden`}
+          >
+            <TabNavigation
+              activeTab={activeTab}
+              onTabChange={setActiveTab}
+              handleMonthChange={handleMonthChange}
+              selectedMonth={selectedMonth}
+              isCurrentOrFutureMonth={isCurrentOrFutureMonth}
               paginationInfo={getPaginationInfo()}
+              role={userData?.role as UserRole}
+              entriesCount={{
+                filtered: getPaginationInfo().itemsOnCurrentPage,
+                total: getPaginationInfo().totalItems,
+                // allEntries: allProductionData.length, // For showing month total
+              }}
             />
           </div>
-        )}
 
-        {activeTab === "analytics" && (
-          <div
-            className={`${COLORS.background.card} backdrop-blur-xl ${COLORS.border.light} border rounded-2xl p-6`}
-          >
-            <div className="flex items-center space-x-3 mb-6">
-              <Activity className={`w-5 h-5 ${COLORS.primary.blue[400]}`} />
-              <h3 className={`text-lg font-semibold ${COLORS.text.primary}`}>
-                Advanced Analytics
-              </h3>
-            </div>
-            <div className="text-center py-12">
-              <Activity
-                className={`w-16 h-16 ${COLORS.text.muted} mx-auto mb-4 opacity-50`}
+          {/* Tab Content */}
+          {activeTab === "dashboard" && (
+            <div className="space-y-6">
+              {/* Summary Stats */}
+              <ProductionStats
+                totalVolume={calculations.totalVolume}
+                averageBSW={calculations.averageBSW}
+                averageTemperature={calculations.averageTemperature}
+                averageGravity={calculations.averageGravity}
               />
-              <p className={`text-lg ${COLORS.text.secondary} mb-2`}>
-                Advanced Analytics Coming Soon
-              </p>
-              <p className={`${COLORS.text.muted}`}>
-                Detailed insights and predictive analytics will be available
-                here
-              </p>
-            </div>
-          </div>
-        )}
-      </div>
 
-      {/* Form Modal */}
-      <ProductionForm
-        isOpen={showForm}
-        onClose={handleCloseForm}
-        editingEntry={editingEntry}
-        onSubmit={handleSubmit}
-        loading={loading}
-        role={userData?.role as UserRole}
-      />
+              {/* Charts */}
+              <div
+                className={`grid grid-cols-1 ${
+                  !["field_operator", "jv_partner"].includes(
+                    userData?.role as string
+                  )
+                    ? "lg:grid-cols-2"
+                    : "lg:grid-cols-1"
+                }  gap-6`}
+              >
+                {/* Production Chart */}
+                <div className="space-y-3">
+                  <ProductionChart
+                    data={calculations.chartData}
+                    title={`${new Date(
+                      selectedMonth.year,
+                      selectedMonth.month - 1
+                    ).toLocaleDateString("en-US", {
+                      year: "numeric",
+                      month: "long",
+                    })} Production Volume`}
+                  />
+                </div>
 
-      {/* Flagged Entry Details Modal */}
-      <Modal
-        isOpen={showFlaggedModal}
-        onClose={() => {
-          setShowFlaggedModal(false);
-          setFlaggedEntry(null);
-        }}
-        title="⚠️ Flagged Entry - AI Analysis"
-      >
-        {flaggedEntry && (
-          <div className="space-y-4">
-            <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-4">
-              <h4 className="text-lg font-semibold text-red-400 mb-3">
-                Entry Details
-              </h4>
-              <div className="grid grid-cols-2 gap-3 text-sm">
-                <div>
-                  <p className="text-gray-400">Partner:</p>
-                  <p className="text-white font-medium">{flaggedEntry.partner}</p>
-                </div>
-                <div>
-                  <p className="text-gray-400">Volume (BBL):</p>
-                  <p className="text-white font-medium">
-                    {flaggedEntry.gross_volume_bbl.toLocaleString()}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-gray-400">BSW (%):</p>
-                  <p className="text-white font-medium">
-                    {flaggedEntry.bsw_percent.toFixed(2)}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-gray-400">Temperature (°F):</p>
-                  <p className="text-white font-medium">
-                    {flaggedEntry.temperature_degF}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-gray-400">API Gravity (°API):</p>
-                  <p className="text-white font-medium">
-                    {flaggedEntry.api_gravity}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-gray-400">Date:</p>
-                  <p className="text-white font-medium">
-                    {new Date(flaggedEntry.timestamp).toLocaleDateString()}
-                  </p>
-                </div>
-              </div>
-            </div>
+                {/* Partner Distribution */}
 
-            <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-xl p-4">
-              <h4 className="text-lg font-semibold text-yellow-400 mb-3 flex items-center gap-2">
-                <span>🤖</span> AI Analysis
-              </h4>
-              <div className="text-sm mb-3 max-h-96 overflow-y-auto">
-                {formatAiAnalysis(flaggedEntry.ai_analysis || "Anomaly detected by Auditor Agent")}
-              </div>
-              {flaggedEntry.anomaly_score && (
-                <div className="flex items-center gap-2 mt-3 pt-3 border-t border-yellow-500/20">
-                  <span className="text-gray-400 text-xs">Confidence Score:</span>
-                  <span className="text-yellow-400 font-semibold">
-                    {flaggedEntry.anomaly_score.toFixed(2)}%
-                  </span>
-                  <div className="flex-1 bg-gray-700 rounded-full h-2 overflow-hidden">
-                    <div
-                      className="bg-yellow-400 h-full transition-all duration-300"
-                      style={{ width: `${flaggedEntry.anomaly_score}%` }}
+                {!["field_operator", "jv_partner"].includes(
+                  userData?.role as string
+                ) ? (
+                  <div className="space-y-3">
+                    <PartnerPieChart
+                      data={calculations.partnerData}
+                      title={
+                        userData?.role === "jv_coordinator"
+                          ? "Volume by Partner"
+                          : "Your Volume"
+                      }
+                      colors={CHART_COLORS}
                     />
                   </div>
+                ) : (
+                  ""
+                )}
+              </div>
+            </div>
+          )}
+
+          {activeTab === "data" && (
+            <div
+              className={`${COLORS.background.card} backdrop-blur-xl ${COLORS.border.light} border rounded-2xl overflow-hidden`}
+            >
+              <div className="p-6 border-b border-white/10">
+                <div className="flex items-center space-x-3 justify-between">
+                  <div className="flex space-x-3 items-center ">
+                    <Table className={`w-5 h-5 ${COLORS.primary.blue[400]}`} />
+                    <h3
+                      className={`text-lg font-semibold ${COLORS.text.primary}`}
+                    >
+                      Production Data Table
+                    </h3>
+                    <span
+                      className={`px-3 py-1 rounded-full text-xs ${COLORS.background.glassHover} ${COLORS.text.secondary}`}
+                    >
+                      {(() => {
+                        const info = getPaginationInfo();
+                        return `${info.startItem}-${info.endItem} of ${info.totalItems}`;
+                      })()}
+                    </span>
+
+                    {total > 31 && (
+                      <div className="flex items-center space-x-2 text-sm text-gray-400">
+                        <span>
+                          Page {getPaginationInfo().currentPage} of{" "}
+                          {getPaginationInfo().totalPages}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                  <PaginationComponent
+                    goToPreviousPage={goToPreviousPage}
+                    loading={loading}
+                    hasPrevious={hasPrevious}
+                    paginationInfo={getPaginationInfo()}
+                    currentPage={currentPageIndex}
+                    data={filteredData}
+                    goToNextPage={goToNextPage}
+                    hasMore={hasMore}
+                    total={total}
+                  />
+                  <p className="text-white">
+                    Total Production:{" "}
+                    <span
+                      className={`px-3 py-1 rounded-full text-xs ${COLORS.background.glassHover} ${COLORS.text.secondary}`}
+                    >
+                      {formatNumber(calculations.totalVolume)} bbls
+                    </span>
+                  </p>
                 </div>
+              </div>
+              <ProductionTable
+                data={filteredData}
+                loading={loading}
+                role={userData?.role as UserRole}
+                canEdit={
+                  userData?.permissions.includes("edit_production_entry") ||
+                  false
+                }
+                total={total}
+                currentPage={currentPageIndex}
+                onEdit={handleEdit}
+                onApprove={handleApproval}
+                onDelete={handleDelete}
+                onViewFlagged={(entry) => {
+                  setFlaggedEntry(entry);
+                  setShowFlaggedModal(true);
+                }}
+                goToPreviousPage={goToPreviousPage}
+                hasPrevious={hasPrevious}
+                hasMore={hasMore}
+                goToNextPage={goToNextPage}
+                paginationInfo={getPaginationInfo()}
+              />
+            </div>
+          )}
+
+          {activeTab === "analytics" && (
+            <div
+              className={`${COLORS.background.card} backdrop-blur-xl ${COLORS.border.light} border rounded-2xl p-6`}
+            >
+              <div className="flex items-center space-x-3 mb-6">
+                <Activity className={`w-5 h-5 ${COLORS.primary.blue[400]}`} />
+                <h3 className={`text-lg font-semibold ${COLORS.text.primary}`}>
+                  Advanced Analytics
+                </h3>
+              </div>
+              <div className="text-center py-12">
+                <Activity
+                  className={`w-16 h-16 ${COLORS.text.muted} mx-auto mb-4 opacity-50`}
+                />
+                <p className={`text-lg ${COLORS.text.secondary} mb-2`}>
+                  Advanced Analytics Coming Soon
+                </p>
+                <p className={`${COLORS.text.muted}`}>
+                  Detailed insights and predictive analytics will be available
+                  here
+                </p>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Form Modal */}
+        <ProductionForm
+          isOpen={showForm}
+          onClose={handleCloseForm}
+          editingEntry={editingEntry}
+          onSubmit={handleSubmit}
+          loading={loading}
+          role={userData?.role as UserRole}
+        />
+
+        {/* Flagged Entry Details Modal */}
+        <Modal
+          isOpen={showFlaggedModal}
+          onClose={() => {
+            setShowFlaggedModal(false);
+            setFlaggedEntry(null);
+          }}
+          title="⚠️ Flagged Entry - AI Analysis"
+        >
+          {flaggedEntry && (
+            <div className="space-y-4">
+              <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-4">
+                <h4 className="text-lg font-semibold text-red-400 mb-3">
+                  Entry Details
+                </h4>
+                <div className="grid grid-cols-2 gap-3 text-sm">
+                  <div>
+                    <p className="text-gray-400">Partner:</p>
+                    <p className="text-white font-medium">
+                      {flaggedEntry.partner}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-gray-400">Volume (BBL):</p>
+                    <p className="text-white font-medium">
+                      {flaggedEntry.gross_volume_bbl.toLocaleString()}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-gray-400">BSW (%):</p>
+                    <p className="text-white font-medium">
+                      {flaggedEntry.bsw_percent.toFixed(2)}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-gray-400">Temperature (°F):</p>
+                    <p className="text-white font-medium">
+                      {flaggedEntry.temperature_degF}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-gray-400">API Gravity (°API):</p>
+                    <p className="text-white font-medium">
+                      {flaggedEntry.api_gravity}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-gray-400">Date:</p>
+                    <p className="text-white font-medium">
+                      {new Date(flaggedEntry.timestamp).toLocaleDateString()}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-xl p-4">
+                <h4 className="text-lg font-semibold text-yellow-400 mb-3 flex items-center gap-2">
+                  <span>🤖</span> AI Analysis
+                </h4>
+                <div className="text-sm mb-3 max-h-96 overflow-y-auto">
+                  {formatAiAnalysis(
+                    flaggedEntry.ai_analysis ||
+                      "Anomaly detected by Auditor Agent"
+                  )}
+                </div>
+                {flaggedEntry.anomaly_score && (
+                  <div className="flex items-center gap-2 mt-3 pt-3 border-t border-yellow-500/20">
+                    <span className="text-gray-400 text-xs">
+                      Confidence Score:
+                    </span>
+                    <span className="text-yellow-400 font-semibold">
+                      {flaggedEntry.anomaly_score.toFixed(2)}%
+                    </span>
+                    <div className="flex-1 bg-gray-700 rounded-full h-2 overflow-hidden">
+                      <div
+                        className="bg-yellow-400 h-full transition-all duration-300"
+                        style={{ width: `${flaggedEntry.anomaly_score}%` }}
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <div className="bg-blue-500/10 border border-blue-500/30 rounded-xl p-4">
+                <h4 className="text-sm font-semibold text-blue-400 mb-2">
+                  Recommended Actions
+                </h4>
+                <ul className="text-xs text-gray-300 space-y-1">
+                  <li>• Review the flagged values for accuracy</li>
+                  <li>• Verify measurement equipment calibration</li>
+                  <li>• Check for data entry errors</li>
+                  <li>• Contact the field operator if needed</li>
+                </ul>
+              </div>
+
+              {userData?.role === "jv_coordinator" && (
+                <button
+                  onClick={() => {
+                    setShowFlaggedModal(false);
+                    handleEdit(flaggedEntry);
+                  }}
+                  className="w-full bg-gradient-to-r from-blue-600 to-purple-600 text-white py-3 px-4 rounded-xl font-medium hover:from-blue-700 hover:to-purple-700 transition-all duration-300 flex items-center justify-center gap-2"
+                >
+                  <Edit className="w-4 h-4" />
+                  <span>Edit This Entry</span>
+                </button>
               )}
             </div>
-
-            <div className="bg-blue-500/10 border border-blue-500/30 rounded-xl p-4">
-              <h4 className="text-sm font-semibold text-blue-400 mb-2">
-                Recommended Actions
-              </h4>
-              <ul className="text-xs text-gray-300 space-y-1">
-                <li>• Review the flagged values for accuracy</li>
-                <li>• Verify measurement equipment calibration</li>
-                <li>• Check for data entry errors</li>
-                <li>• Contact the field operator if needed</li>
-              </ul>
-            </div>
-
-            {userData?.role === "jv_coordinator" && (
-              <button
-                onClick={() => {
-                  setShowFlaggedModal(false);
-                  handleEdit(flaggedEntry);
-                }}
-                className="w-full bg-gradient-to-r from-blue-600 to-purple-600 text-white py-3 px-4 rounded-xl font-medium hover:from-blue-700 hover:to-purple-700 transition-all duration-300 flex items-center justify-center gap-2"
-              >
-                <Edit className="w-4 h-4" />
-                <span>Edit This Entry</span>
-              </button>
-            )}
-          </div>
-        )}
-      </Modal>
-    </div>
+          )}
+        </Modal>
+      </div>
+    </ErrorBoundary>
   );
 };
 
