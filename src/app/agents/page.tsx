@@ -2,8 +2,6 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { collection, query, orderBy, limit, onSnapshot } from 'firebase/firestore';
-import { db } from '../../../lib/firebase';
 import { getAllAgentsStatus, AgentStatus } from '../../../lib/agents-api';
 
 interface AgentLog {
@@ -24,9 +22,13 @@ export default function AgentCommandCenter() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [passcode, setPasscode] = useState('');
   const [error, setError] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalLogs, setTotalLogs] = useState(0);
 
   // Simple passcode: "agent123"
   const AGENT_PASSCODE = 'agent123';
+  const LOGS_PER_PAGE = 12;
 
   const handlePasscodeSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -52,26 +54,40 @@ export default function AgentCommandCenter() {
     return () => clearInterval(interval);
   }, []);
 
-  // Real-time agent logs from Firestore
+  // Fetch paginated agent logs from backend
   useEffect(() => {
-    const logsQuery = query(
-      collection(db, 'agent_logs'),
-      orderBy('timestamp', 'desc'),
-      limit(50)
-    );
+    if (!isAuthenticated) return;
 
-    const unsubscribe = onSnapshot(logsQuery, (snapshot) => {
-      const logs = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data(),
-      })) as AgentLog[];
+    const fetchLogs = async () => {
+      setLoading(true);
+      try {
+        const COMMUNICATOR_URL = process.env.NEXT_PUBLIC_COMMUNICATOR_AGENT_URL || 'http://localhost:8083';
+        const response = await fetch(`${COMMUNICATOR_URL}/agent-logs?page=${currentPage}&page_size=${LOGS_PER_PAGE}`);
 
-      setAgentLogs(logs);
-      setLoading(false);
-    });
+        if (!response.ok) {
+          throw new Error('Failed to fetch agent logs');
+        }
 
-    return () => unsubscribe();
-  }, []);
+        const data = await response.json();
+
+        if (data.success) {
+          setAgentLogs(data.data);
+          setTotalPages(data.total_pages);
+          setTotalLogs(data.total);
+        }
+      } catch (error) {
+        console.error('Error fetching agent logs:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchLogs();
+    // Refresh every 10 seconds
+    const interval = setInterval(fetchLogs, 10000);
+
+    return () => clearInterval(interval);
+  }, [currentPage, isAuthenticated]);
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -302,6 +318,37 @@ export default function AgentCommandCenter() {
               </div>
             )}
           </div>
+
+          {/* Pagination Controls */}
+          {!loading && agentLogs.length > 0 && (
+            <div className="p-4 border-t border-gray-700 flex items-center justify-between">
+              <div className="text-sm text-gray-400">
+                Showing {((currentPage - 1) * LOGS_PER_PAGE) + 1} to {Math.min(currentPage * LOGS_PER_PAGE, totalLogs)} of {totalLogs} logs
+              </div>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                  disabled={currentPage === 1}
+                  className="px-4 py-2 bg-gray-700 hover:bg-gray-600 disabled:bg-gray-800 disabled:text-gray-600 rounded-lg text-sm font-medium transition-colors"
+                >
+                  Previous
+                </button>
+                <div className="flex items-center gap-2 px-4 py-2 bg-gray-800 rounded-lg text-sm">
+                  <span className="text-gray-400">Page</span>
+                  <span className="font-semibold text-white">{currentPage}</span>
+                  <span className="text-gray-400">of</span>
+                  <span className="font-semibold text-white">{totalPages}</span>
+                </div>
+                <button
+                  onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                  disabled={currentPage >= totalPages}
+                  className="px-4 py-2 bg-gray-700 hover:bg-gray-600 disabled:bg-gray-800 disabled:text-gray-600 rounded-lg text-sm font-medium transition-colors"
+                >
+                  Next
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>
