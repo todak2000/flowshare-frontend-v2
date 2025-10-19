@@ -24,7 +24,7 @@ import {
 } from "lucide-react";
 import { COLORS } from "../../../component/Home";
 import { useUser } from "../../../hook/useUser";
-import { formatDateForInput } from "../../../utils/date";
+import { useDateFilter } from "../../../hook/useDateFilter";
 import { firebaseService } from "../../../lib/firebase-service";
 import LoadingSpinner from "../../../component/LoadingSpinner";
 import { SummaryCard } from "../../../component/cards/SummaryCard";
@@ -267,16 +267,13 @@ const ReconciliationPage: React.FC = () => {
 
   const { auth, data: userData, loading: userLoading } = useUser();
 
-  // Default to current month
+  // Default to current month - calculate days from first to last day of month
   const now = new Date();
-  const firstDayOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-  const lastDayOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+  const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+  const currentDay = now.getDate();
+  const daysFromFirstOfMonth = currentDay - 1; // Days from 1st to today
 
-  const [reconcileDateRange, setReconcileDateRange] =
-    useState<ReconciliationDateRange>({
-      startDate: formatDateForInput(firstDayOfMonth),
-      endDate: formatDateForInput(lastDayOfMonth),
-    });
+  const { dateFilter: reconcileDateRange, updateStartDate, updateEndDate } = useDateFilter(daysInMonth - 1);
 
   useEffect(() => {
     if (!userLoading && !auth) {
@@ -935,9 +932,7 @@ const ReconciliationPage: React.FC = () => {
               label="Start Date"
               type="date"
               value={reconcileDateRange.startDate}
-              onChange={(value) =>
-                setReconcileDateRange((prev) => ({ ...prev, startDate: value }))
-              }
+              onChange={(value) => updateStartDate(value)}
               icon={Calendar}
               disabled={loading}
             />
@@ -945,9 +940,7 @@ const ReconciliationPage: React.FC = () => {
               label="End Date"
               type="date"
               value={reconcileDateRange.endDate}
-              onChange={(value) =>
-                setReconcileDateRange((prev) => ({ ...prev, endDate: value }))
-              }
+              onChange={(value) => updateEndDate(value)}
               icon={Calendar}
               disabled={loading}
             />
