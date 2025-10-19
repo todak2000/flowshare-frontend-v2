@@ -1129,6 +1129,7 @@ export class FirebaseService {
               period_start: periodStartDate.toISOString(),
               period_end: periodEndDate.toISOString(),
               reconciliation_data: {
+                reconciliation_id: reconciliationId,
                 period_start: periodStartDate.toLocaleDateString(),
                 period_end: periodEndDate.toLocaleDateString(),
                 period_month: periodMonth,
