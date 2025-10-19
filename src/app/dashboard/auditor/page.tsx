@@ -4,6 +4,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useUser } from "../../../../hook/useUser";
+import { useDateFilter } from "../../../../hook/useDateFilter";
 import { firebaseService } from "../../../../lib/firebase-service";
 import {
   AuditLog,
@@ -14,7 +15,6 @@ import {
 } from "../../../../types";
 import LoadingSpinner from "../../../../component/LoadingSpinner";
 import { SummaryCard } from "../../../../component/cards/SummaryCard";
-import { formatDateForInput } from "../../../../utils/date";
 import {
   BarChart,
   Bar,
@@ -46,12 +46,7 @@ export default function AuditorDashboard() {
   const [activeTab, setActiveTab] = useState<
     "overview" | "audit-logs" | "data-integrity" | "reconciliation"
   >("overview");
-  const [dateFilter, setDateFilter] = useState({
-    startDate: formatDateForInput(
-      new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
-    ), // 30 days ago
-    endDate: formatDateForInput(new Date()),
-  });
+  const { dateFilter, updateStartDate, updateEndDate } = useDateFilter(30);
 
   useEffect(() => {
     if (!userLoading && !auth) {
@@ -153,12 +148,7 @@ export default function AuditorDashboard() {
               <input
                 type="date"
                 value={dateFilter.startDate}
-                onChange={(e) =>
-                  setDateFilter((prev) => ({
-                    ...prev,
-                    startDate: e.target.value,
-                  }))
-                }
+                onChange={(e) => updateStartDate(e.target.value)}
                 className="w-full border border-gray-300 rounded-md p-2"
               />
             </div>
@@ -169,12 +159,7 @@ export default function AuditorDashboard() {
               <input
                 type="date"
                 value={dateFilter.endDate}
-                onChange={(e) =>
-                  setDateFilter((prev) => ({
-                    ...prev,
-                    endDate: e.target.value,
-                  }))
-                }
+                onChange={(e) => updateEndDate(e.target.value)}
                 className="w-full border border-gray-300 rounded-md p-2"
               />
             </div>

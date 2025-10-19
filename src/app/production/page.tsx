@@ -26,6 +26,7 @@ import { COLORS } from "../../../component/Home";
 import { useUser } from "../../../hook/useUser";
 import { useProductionCalculations } from "../../../hook/useProductionCalculations";
 import { firebaseService } from "../../../lib/firebase-service";
+import { formatDateForInput } from "../../../utils/date";
 import { Modal } from "../../../component/Modal";
 import { SummaryCard } from "../../../component/cards/SummaryCard";
 import {
@@ -108,10 +109,6 @@ const FORM_FIELDS: FormFieldConfig[] = [
 ];
 
 // Utility functions
-const formatDateForInput = (date: Date): string => {
-  return date.toISOString().split("T")[0];
-};
-
 const downloadCSV = (data: ProductionEntry[]): void => {
   const csvContent = [
     [
