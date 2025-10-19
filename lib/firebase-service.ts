@@ -40,7 +40,7 @@ import {
 } from "../types";
 import { AllocationEngine } from "./allocation-engine";
 import { userDB } from "../constants";
-import { calculateAllocations, sendNotification } from "./agents-api";
+import { calculateAllocations } from "./agents-api";
 
 export class FirebaseService {
   private allocationEngine: AllocationEngine;
