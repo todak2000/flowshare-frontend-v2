@@ -581,6 +581,38 @@ export class FirebaseService {
             )} with ID: ${existingReceipt.id}`
         );
       }
+
+      // Validate terminal volumes against partner production
+      const productionEntries = await this.getAllProductionEntriesForPeriod(
+        undefined,
+        monthStart,
+        monthEnd
+      );
+
+      if (productionEntries && productionEntries.length > 0) {
+        // Calculate total partner gross volume
+        const totalPartnerGrossVolume = productionEntries.reduce(
+          (sum, entry) => sum + entry.gross_volume_bbl,
+          0
+        );
+
+        // Check initial volume
+        if (data.initial_volume_bbl > totalPartnerGrossVolume) {
+          throw new Error(
+            `Terminal initial volume (${data.initial_volume_bbl.toLocaleString()} BBL) exceeds total partner production (${totalPartnerGrossVolume.toLocaleString()} BBL). ` +
+            `Please adjust the initial volume to be ${totalPartnerGrossVolume.toLocaleString()} BBL or less.`
+          );
+        }
+
+        // Check final volume
+        if (data.final_volume_bbl > totalPartnerGrossVolume) {
+          throw new Error(
+            `Terminal final volume (${data.final_volume_bbl.toLocaleString()} BBL) exceeds total partner production (${totalPartnerGrossVolume.toLocaleString()} BBL). ` +
+            `Please adjust the final volume to be ${totalPartnerGrossVolume.toLocaleString()} BBL or less.`
+          );
+        }
+      }
+
       const now = new Date();
       const hash = this.allocationEngine.generateHash(data);
 
