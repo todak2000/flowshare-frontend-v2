@@ -182,12 +182,27 @@ const UserMenu: React.FC<UserMenuProps> = ({
   setShowUserMenu,
   onSignOut,
   router,
-}) => (
-  <div className="relative">
-    <button
-      onClick={() => setShowUserMenu(!showUserMenu)}
-      className={`flex items-center space-x-3 cursor-pointer ${COLORS.background.glass} backdrop-blur-sm ${COLORS.border.light} border rounded-xl px-4 py-2 hover:${COLORS.background.glassHover} transition-all duration-300`}
-    >
+}) => {
+  // Keyboard navigation
+  React.useEffect(() => {
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && showUserMenu) {
+        setShowUserMenu(false);
+      }
+    };
+    document.addEventListener('keydown', handleEscape);
+    return () => document.removeEventListener('keydown', handleEscape);
+  }, [showUserMenu, setShowUserMenu]);
+
+  return (
+    <div className="relative">
+      <button
+        onClick={() => setShowUserMenu(!showUserMenu)}
+        aria-label="User menu"
+        aria-expanded={showUserMenu}
+        aria-haspopup="true"
+        className={`flex items-center space-x-3 cursor-pointer ${COLORS.background.glass} backdrop-blur-sm ${COLORS.border.light} border rounded-xl px-4 py-2 hover:${COLORS.background.glassHover} transition-all duration-300`}
+      >
       <div
         className={`w-8 h-8 rounded-lg bg-gradient-to-br ${COLORS.primary.blue[600]} ${COLORS.primary.purple[600]} flex items-center justify-center`}
       >
@@ -222,10 +237,12 @@ const UserMenu: React.FC<UserMenuProps> = ({
 
         {/* Menu */}
         <div
+          role="menu"
+          aria-label="User account menu"
           className={`absolute right-0 mt-2 w-64 bg-black backdrop-blur-xl ${COLORS.border.light} border rounded-2xl shadow-2xl z-50 overflow-hidden`}
         >
           {/* User Info Header */}
-          <div className="p-4 border-b border-white/10">
+          <div className="p-4 border-b border-white/10" role="presentation">
             <div className="flex items-center space-x-3">
               <div
                 className={`w-12 h-12 rounded-xl bg-gradient-to-br ${COLORS.primary.blue[600]} ${COLORS.primary.purple[600]} flex items-center justify-center`}
@@ -251,34 +268,54 @@ const UserMenu: React.FC<UserMenuProps> = ({
           {/* Menu Items */}
           <div className="py-2">
             <button
+              role="menuitem"
               onClick={onSignOut}
-              className="w-full flex items-center space-x-3 px-4 py-3 text-sm text-red-400 hover:bg-red-500/10 transition-colors"
+              aria-label="Sign out of your account"
+              className="w-full flex items-center space-x-3 px-4 py-3 text-sm text-red-400 hover:bg-red-500/10 transition-colors focus:outline-none focus:ring-2 focus:ring-red-500"
             >
-              <LogOut className="w-4 h-4" />
+              <LogOut className="w-4 h-4" aria-hidden="true" />
               <span>Sign Out</span>
             </button>
           </div>
         </div>
       </>
     )}
-  </div>
-);
+    </div>
+  );
+};
 
 // Notification Bell Component
 const NotificationBell: React.FC = () => {
   const { notifications, unreadCount, markAsRead, markAllAsRead } = useNotifications();
   const [isOpen, setIsOpen] = useState(false);
 
+  // Keyboard navigation
+  React.useEffect(() => {
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && isOpen) {
+        setIsOpen(false);
+      }
+    };
+    document.addEventListener('keydown', handleEscape);
+    return () => document.removeEventListener('keydown', handleEscape);
+  }, [isOpen]);
+
   return (
     <div className="relative">
       {/* Bell Icon */}
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="relative p-2 hover:bg-white/10 rounded-full transition-colors"
+        aria-label={`Notifications${unreadCount > 0 ? `, ${unreadCount} unread` : ''}`}
+        aria-expanded={isOpen}
+        aria-haspopup="true"
+        className="relative p-2 hover:bg-white/10 rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500"
       >
-        <Bell className={`w-5 h-5 ${COLORS.text.primary}`} />
+        <Bell className={`w-5 h-5 ${COLORS.text.primary}`} aria-hidden="true" />
         {unreadCount > 0 && (
-          <span className="absolute top-0 right-0 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
+          <span
+            className="absolute top-0 right-0 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center"
+            aria-label={`${unreadCount} unread notifications`}
+          >
             {unreadCount}
           </span>
         )}
@@ -391,16 +428,20 @@ interface NavItemProps {
 const NavItem: React.FC<NavItemProps> = ({ item, onClick }) => {
   const IconComponent = item.icon;
   const path = usePathname();
+  const isActive = path.includes(item.href);
+
   return (
     <button
       onClick={onClick}
-      className={`flex items-center cursor-pointer space-x-2 px-4 py-2 rounded-xl text-sm font-medium transition-all duration-300 ${
-        path.includes(item.href)
+      aria-label={`Navigate to ${item.label}`}
+      aria-current={isActive ? 'page' : undefined}
+      className={`flex items-center cursor-pointer space-x-2 px-4 py-2 rounded-xl text-sm font-medium transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+        isActive
           ? `bg-white ${COLORS.primary.blue[600]} ${COLORS.primary.purple[600]} shadow-lg`
           : `${COLORS.text.secondary} hover:${COLORS.text.primary} hover:${COLORS.background.glassHover}`
       }`}
     >
-      <IconComponent className="w-4 h-4" />
+      <IconComponent className="w-4 h-4" aria-hidden="true" />
       <span>{item.label}</span>
     </button>
   );
@@ -450,7 +491,9 @@ const MobileMenu: React.FC<MobileMenuProps> = ({
                 router.push(item.href);
                 onClose();
               }}
-              className={`w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-sm font-medium transition-all duration-300 ${
+              aria-label={`Navigate to ${item.label}`}
+              aria-current={item.active ? 'page' : undefined}
+              className={`w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-sm font-medium transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-blue-500 ${
                 item.active
                   ? `bg-gradient-to-r ${COLORS.primary.blue[600]} ${COLORS.primary.purple[600]} text-white`
                   : `${COLORS.text.secondary} hover:${COLORS.background.glassHover}`
