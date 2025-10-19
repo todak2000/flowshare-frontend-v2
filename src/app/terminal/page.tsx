@@ -8,6 +8,7 @@ import { TerminalReceipt, CreateTerminalReceiptData } from '../../../types';
 import LoadingSpinner from '../../../component/LoadingSpinner';
 import SummaryCard from '../../../component/SummaryCard';
 import { Modal } from '../../../component/Modal';
+import TerminalReceiptTable from '../../../component/TerminalReceiptTable';
 import { Database, BarChart3, Thermometer } from 'lucide-react';
 
 export default function TerminalReceiptPage() {
@@ -186,89 +187,12 @@ export default function TerminalReceiptPage() {
         </div>
 
         {/* Terminal Receipts Table */}
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200">
-          <div className="overflow-x-auto">
-            {loading ? (
-              <div className="p-8 text-center">
-                <LoadingSpinner message="Loading terminal receipts..." />
-              </div>
-            ) : terminalReceipts.length === 0 ? (
-              <div className="p-8 text-center text-gray-500">
-                No terminal receipts recorded yet.
-                <div className="mt-2">
-                  <button
-                    onClick={() => setShowForm(true)}
-                    className="text-blue-600 hover:underline"
-                  >
-                    Add your first terminal receipt
-                  </button>
-                </div>
-              </div>
-            ) : (
-              <table className="w-full">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Date & Time
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Initial Volume (BBL)
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Final Volume (BBL)
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Temperature (°F)
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Created By
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Actions
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {terminalReceipts.map((receipt) => (
-                    <tr key={receipt.id} className="hover:bg-gray-50">
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {new Date(receipt.timestamp).toLocaleString()}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {receipt.initial_volume_bbl.toLocaleString()}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-blue-600">
-                        {receipt.final_volume_bbl.toLocaleString()}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {receipt.temperature_degF}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {receipt.created_by.substring(0, 8)}...
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                        <div className="flex space-x-2">
-                          <button
-                            onClick={() => handleEdit(receipt)}
-                            className="text-blue-600 hover:text-blue-900"
-                          >
-                            Edit
-                          </button>
-                          <button
-                            onClick={() => handleDelete(receipt.id)}
-                            className="text-red-600 hover:text-red-900"
-                          >
-                            Delete
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            )}
-          </div>
-        </div>
+        <TerminalReceiptTable
+          data={terminalReceipts}
+          loading={loading}
+          onEdit={handleEdit}
+          onDelete={handleDelete}
+        />
       </div>
 
       {/* Form Modal */}
