@@ -6,39 +6,32 @@ import { Calculator } from "lucide-react";
 import { COLORS } from "../../../component/Home";
 import { useUser } from "../../../hook/useUser";
 import { useDateFilter } from "../../../hook/useDateFilter";
-import { firebaseService } from "../../../lib/firebase-service";
 import LoadingSpinner from "../../../component/LoadingSpinner";
-import { ReconciliationReport, ReconciliationRun } from "../../../types";
 import { ReconciliationSummary } from "./components/ReconciliationSummary";
 import { ReconciliationTable } from "./components/ReconciliationTable";
 import { RunReconciliationModal } from "./components/RunReconciliationModal";
 import { ReportModal } from "./components/ReportModal";
+import {
+  useReconciliationStats,
+  useReconciliationReport,
+  useReconciliationPeriodSummary,
+  useTriggerReconciliation,
+} from "../../../lib/queries/useReconciliationData";
 
-interface ReconciliationPeriodSummary {
-  periodStart: Date;
-  periodEnd: Date;
-  totalProductionEntries: number;
-  totalTerminalReceipts: number;
-  partnersInvolved: string[];
-  readyForReconciliation: boolean;
-  issues: string[];
-}
 
 // Main Reconciliation Page Component
 const ReconciliationPage: React.FC = () => {
   const router = useRouter();
-  const [reconciliationRuns, setReconciliationRuns] = useState<
-    ReconciliationRun[]
-  >([]);
-  const [selectedReport, setSelectedReport] =
-    useState<ReconciliationReport | null>(null);
-  const [periodSummary, setPeriodSummary] =
-    useState<ReconciliationPeriodSummary | null>(null);
-  const [loading, setLoading] = useState<boolean>(false);
+  const { auth, data: userData, loading: userLoading } = useUser();
+
+  // React Query hooks
+  const { data: stats, runs, isLoading: runsLoading } = useReconciliationStats(5);
+  const [selectedRunId, setSelectedRunId] = useState<string | null>(null);
+  const { data: selectedReport } = useReconciliationReport(selectedRunId);
+  const triggerMutation = useTriggerReconciliation();
+
   const [showRunForm, setShowRunForm] = useState<boolean>(false);
   const [showReportModal, setShowReportModal] = useState<boolean>(false);
-
-  const { auth, data: userData, loading: userLoading } = useUser();
 
   // Default to current month - calculate days from first to last day of month
   const now = new Date();
@@ -51,102 +44,68 @@ const ReconciliationPage: React.FC = () => {
   const { dateFilter: reconcileDateRange, updateStartDate, updateEndDate } =
     useDateFilter(daysInMonth - 1);
 
+  // Period summary - only fetched when dates are available
+  const periodSummaryStartDate = reconcileDateRange.startDate
+    ? new Date(reconcileDateRange.startDate)
+    : null;
+  const periodSummaryEndDate = reconcileDateRange.endDate
+    ? new Date(reconcileDateRange.endDate)
+    : null;
+
+  const { data: periodSummary, refetch: refetchPeriodSummary, isLoading: periodSummaryLoading } =
+    useReconciliationPeriodSummary(periodSummaryStartDate, periodSummaryEndDate);
+
   useEffect(() => {
     if (!userLoading && !auth) {
       router.push("/onboarding/login");
       return;
     }
+  }, [userLoading, auth, router]);
 
-    loadReconciliationData();
-  }, [userLoading, auth, userData, router]);
-
-  const loadReconciliationData = async () => {
-    setLoading(true);
-    try {
-      const runs = await firebaseService.getReconciliationRuns();
-      setReconciliationRuns(runs.slice(0, 5) as any);
-    } catch (error) {
-      console.error("Error loading reconciliation data:", error);
-    } finally {
-      setLoading(false);
-    }
-  };
+  const reconciliationRuns = runs || [];
+  const loading = runsLoading || triggerMutation.isPending || periodSummaryLoading;
 
   const handlePeriodSummaryCheck = async (): Promise<void> => {
     if (!reconcileDateRange.startDate || !reconcileDateRange.endDate) return;
 
-    setLoading(true);
     try {
-      const summary = await firebaseService.getReconciliationSummaryForPeriod(
-        new Date(reconcileDateRange.startDate),
-        new Date(reconcileDateRange.endDate)
-      );
-      setPeriodSummary(summary);
+      await refetchPeriodSummary();
     } catch (error) {
       console.error("Error getting period summary:", error);
-    } finally {
-      setLoading(false);
     }
   };
 
   const handleRunReconciliation = async () => {
-    setLoading(true);
     try {
-      // First check if reconciliation already exists
-      const existingCheck = await firebaseService.checkExistingReconciliation(
-        new Date(reconcileDateRange.startDate),
-        new Date(reconcileDateRange.endDate)
-      );
-
-      if (existingCheck.exists) {
-        alert(existingCheck.message);
-        setLoading(false);
-        return;
-      }
-
-      const reconciliationId = await firebaseService.triggerReconciliation(
-        new Date(reconcileDateRange.startDate),
-        new Date(reconcileDateRange.endDate),
-        auth.uid
-      );
+      const reconciliationId = await triggerMutation.mutateAsync({
+        startDate: new Date(reconcileDateRange.startDate),
+        endDate: new Date(reconcileDateRange.endDate),
+        userId: auth.uid,
+      });
 
       setShowRunForm(false);
-      setPeriodSummary(null);
-      await loadReconciliationData();
       alert(
         `Reconciliation completed successfully for the period! ID: ${reconciliationId}`
       );
     } catch (error: any) {
       console.error("Error running reconciliation:", error);
       alert(`Error running reconciliation: ${error.message}`);
-    } finally {
-      setLoading(false);
     }
   };
 
-  const handleViewReport = async (run: ReconciliationRun) => {
-    setLoading(true);
+  const handleViewReport = async (run: any) => {
     try {
-      const report = await firebaseService.getReconciliationReport(run.id);
-      setSelectedReport(report);
+      setSelectedRunId(run.id);
       setShowReportModal(true);
     } catch (error) {
       console.error("Error loading reconciliation report:", error);
       alert("Error loading reconciliation report.");
-    } finally {
-      setLoading(false);
     }
   };
 
-  // Calculate statistics
-  const totalVolume = reconciliationRuns.reduce(
-    (sum, run) => sum + run.total_terminal_volume,
-    0
-  );
-
-  const completedRuns = reconciliationRuns.filter(
-    (run) => run.status === "completed"
-  ).length;
+  // Calculate statistics from React Query
+  const totalVolume = stats?.totalVolume || 0;
+  const completedRuns = stats?.completedRuns || 0;
 
   if (userLoading) {
     return (
@@ -204,12 +163,11 @@ const ReconciliationPage: React.FC = () => {
         isOpen={showRunForm}
         onClose={() => {
           setShowRunForm(false);
-          setPeriodSummary(null);
         }}
         reconcileDateRange={reconcileDateRange}
         updateStartDate={updateStartDate}
         updateEndDate={updateEndDate}
-        periodSummary={periodSummary}
+        periodSummary={periodSummary || null}
         loading={loading}
         onCheckPeriod={handlePeriodSummaryCheck}
         onRunReconciliation={handleRunReconciliation}
@@ -219,7 +177,7 @@ const ReconciliationPage: React.FC = () => {
       <ReportModal
         isOpen={showReportModal}
         onClose={() => setShowReportModal(false)}
-        report={selectedReport}
+        report={selectedReport || null}
       />
     </div>
   );
