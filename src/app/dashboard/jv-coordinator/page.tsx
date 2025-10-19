@@ -63,10 +63,6 @@ interface TerminalFormData {
   year: number;
 }
 
-interface ReconciliationDateRange {
-  startDate: string;
-  endDate: string;
-}
 
 // Reusable Components
 interface SummaryCardProps {
@@ -326,7 +322,6 @@ const JVCoordinatorDashboard: React.FC = () => {
   >([]);
   const [loading, setLoading] = useState<boolean>(false);
   const [showTerminalForm, setShowTerminalForm] = useState<boolean>(false);
-  const [showReconcileForm, setShowReconcileForm] = useState<boolean>(false);
 
   const currentDate = new Date();
   const [terminalFormData, setTerminalFormData] = useState<TerminalFormData>({
@@ -338,16 +333,6 @@ const JVCoordinatorDashboard: React.FC = () => {
     year: currentDate.getFullYear(),
   });
 
-  // Default to current month
-  const now = new Date();
-  const firstDayOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-  const lastDayOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-
-  const [reconcileDateRange, setReconcileDateRange] =
-    useState<ReconciliationDateRange>({
-      startDate: formatDateForInput(firstDayOfMonth),
-      endDate: formatDateForInput(lastDayOfMonth),
-    });
 
   useEffect(() => {
     if (!userLoading && !auth) {
@@ -414,38 +399,6 @@ const JVCoordinatorDashboard: React.FC = () => {
         ` ${
           error.message ?? "Error saving terminal receipt. Please try again."
         } `
-      );
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleReconcile = async () => {
-    setLoading(true);
-    try {
-      const existingCheck = await firebaseService.checkExistingReconciliation(
-        new Date(reconcileDateRange.startDate),
-        new Date(reconcileDateRange.endDate)
-      );
-      if (existingCheck.exists) {
-        alert(existingCheck.message);
-        setLoading(false);
-        return;
-      }
-
-      await firebaseService.triggerReconciliation(
-        new Date(reconcileDateRange.startDate),
-        new Date(reconcileDateRange.endDate),
-        auth.uid
-      );
-
-      setShowReconcileForm(false);
-      await loadDashboardData();
-      alert("Reconciliation completed successfully!");
-    } catch (error) {
-      console.error("Error triggering reconciliation:", error);
-      alert(
-        "Error running reconciliation. Please check that production entries and terminal receipts exist for the selected date."
       );
     } finally {
       setLoading(false);
@@ -519,23 +472,14 @@ const JVCoordinatorDashboard: React.FC = () => {
         </div>
 
         {/* Action Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+        <div className="grid grid-cols-1 gap-6 mb-8">
           <ActionCard
             title="Record Terminal Receipt"
-            description="Enter terminal measurement data for allocation calculations. Record initial and final volumes along with temperature readings."
+            description="Enter terminal measurement data for allocation calculations. Record initial and final volumes along with temperature readings. Reconciliation will be automatically triggered for the selected month."
             buttonText="Add Terminal Receipt"
             icon={Terminal}
             onClick={() => setShowTerminalForm(true)}
             variant="primary"
-          />
-          <ActionCard
-            title="Trigger Reconciliation"
-            description="Run monthly reconciliation to calculate partner allocations. Ensure production entries and terminal receipts exist for the selected period."
-            buttonText="Run Reconciliation"
-            icon={Calculator}
-            // onClick={() => setShowReconcileForm(true)}
-            onClick={() => router.push("/reconciliation")}
-            variant="secondary"
           />
         </div>
 
@@ -856,117 +800,6 @@ const JVCoordinatorDashboard: React.FC = () => {
             </button>
             <button
               onClick={() => setShowTerminalForm(false)}
-              className={`flex-1 ${COLORS.background.glass} ${COLORS.text.primary} py-3 px-4 rounded-xl font-medium hover:${COLORS.background.glassHover} transition-all duration-300 ${COLORS.border.light} border`}
-            >
-              Cancel
-            </button>
-          </div>
-        </div>
-      </Modal>
-
-      {/* Reconciliation Form Modal */}
-      <Modal
-        isOpen={showReconcileForm}
-        onClose={() => setShowReconcileForm(false)}
-        title="Trigger Reconciliation"
-      >
-        <div className="space-y-6">
-          <InputField
-            label="Start Date"
-            type="date"
-            value={reconcileDateRange.startDate}
-            onChange={(value) =>
-              setReconcileDateRange((prev) => ({ ...prev, startDate: value }))
-            }
-            icon={Calendar}
-            disabled={loading}
-          />
-
-          <InputField
-            label="End Date"
-            type="date"
-            value={reconcileDateRange.endDate}
-            onChange={(value) =>
-              setReconcileDateRange((prev) => ({ ...prev, endDate: value }))
-            }
-            icon={Calendar}
-            disabled={loading}
-          />
-
-          {/* Date Range Preview */}
-          <div
-            className={`p-4 ${COLORS.background.glass} rounded-xl ${COLORS.border.light} border`}
-          >
-            <h4
-              className={`text-sm font-medium ${COLORS.text.primary} mb-2 flex items-center space-x-2`}
-            >
-              <Info className="w-4 h-4" />
-              <span>Reconciliation Period:</span>
-            </h4>
-            <div className="text-sm space-y-2">
-              <div className="flex justify-between">
-                <span className={COLORS.text.muted}>Period:</span>
-                <span className={COLORS.text.secondary}>
-                  {new Date(reconcileDateRange.startDate).toLocaleDateString()}{" "}
-                  - {new Date(reconcileDateRange.endDate).toLocaleDateString()}
-                </span>
-              </div>
-              <div className="flex justify-between">
-                <span className={COLORS.text.muted}>Duration:</span>
-                <span className={COLORS.text.secondary}>
-                  {Math.ceil(
-                    (new Date(reconcileDateRange.endDate).getTime() -
-                      new Date(reconcileDateRange.startDate).getTime()) /
-                      (1000 * 60 * 60 * 24)
-                  )}{" "}
-                  days
-                </span>
-              </div>
-            </div>
-          </div>
-
-          {/* Warning Note */}
-          <div className="bg-yellow-500/10 border border-yellow-500/20 rounded-xl p-4">
-            <div className="flex items-start space-x-3">
-              <AlertTriangle className="w-5 h-5 text-yellow-400 flex-shrink-0 mt-0.5" />
-              <div>
-                <p className="text-sm text-yellow-400 font-medium mb-1">
-                  Important Note:
-                </p>
-                <p className="text-sm text-yellow-300/80">
-                  Ensure that production entries and terminal receipts exist for
-                  the selected date range before running reconciliation. The
-                  system will calculate partner allocations based on available
-                  data.
-                </p>
-              </div>
-            </div>
-          </div>
-
-          <div className="flex gap-3 pt-4">
-            <button
-              onClick={handleReconcile}
-              disabled={
-                loading ||
-                !reconcileDateRange.startDate ||
-                !reconcileDateRange.endDate
-              }
-              className={`flex-1 bg-gradient-to-r from-green-600 to-emerald-600 text-white py-3 px-4 rounded-xl font-medium hover:from-green-700 hover:to-emerald-700 transition-all duration-300 disabled:opacity-50 flex items-center justify-center space-x-2`}
-            >
-              {loading ? (
-                <>
-                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                  <span>Processing...</span>
-                </>
-              ) : (
-                <>
-                  <Calculator className="w-4 h-4" />
-                  <span>Run Reconciliation</span>
-                </>
-              )}
-            </button>
-            <button
-              onClick={() => setShowReconcileForm(false)}
               className={`flex-1 ${COLORS.background.glass} ${COLORS.text.primary} py-3 px-4 rounded-xl font-medium hover:${COLORS.background.glassHover} transition-all duration-300 ${COLORS.border.light} border`}
             >
               Cancel
