@@ -31,16 +31,19 @@ interface ProductionTableProps {
   return (
     <div className="bg-white rounded-xl shadow-sm border border-gray-200">
       <div className="overflow-x-auto">
-        <table className="w-full">
+        <table className="w-full" aria-label="Production entries table">
+          <caption className="sr-only">
+            Production entries showing date, volume, BSW percentage, temperature, and API gravity
+          </caption>
           <thead>
             <tr className="border-b border-gray-200 bg-gray-50">
-              <th className="text-left p-4 font-semibold text-gray-700">Date</th>
-              <th className="text-left p-4 font-semibold text-gray-700">Volume (BBL)</th>
-              <th className="text-left p-4 font-semibold text-gray-700">BSW %</th>
-              <th className="text-left p-4 font-semibold text-gray-700">Temp (°F)</th>
-              <th className="text-left p-4 font-semibold text-gray-700">API Gravity (°API)</th>
+              <th scope="col" className="text-left p-4 font-semibold text-gray-700">Date</th>
+              <th scope="col" className="text-left p-4 font-semibold text-gray-700">Volume (BBL)</th>
+              <th scope="col" className="text-left p-4 font-semibold text-gray-700">BSW %</th>
+              <th scope="col" className="text-left p-4 font-semibold text-gray-700">Temp (°F)</th>
+              <th scope="col" className="text-left p-4 font-semibold text-gray-700">API Gravity (°API)</th>
               {canEdit && (
-                <th className="text-left p-4 font-semibold text-gray-700">Actions</th>
+                <th scope="col" className="text-left p-4 font-semibold text-gray-700">Actions</th>
               )}
             </tr>
           </thead>
@@ -74,15 +77,17 @@ interface ProductionTableProps {
                       <div className="flex gap-2">
                         <button
                           onClick={() => onEdit(entry)}
-                          className="text-blue-600 hover:text-blue-800 transition-colors"
+                          aria-label={`Edit entry from ${formatDate(entry.timestamp)}`}
+                          className="text-blue-600 hover:text-blue-800 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 rounded p-1"
                         >
-                          <Edit size={18} />
+                          <Edit size={18} aria-hidden="true" />
                         </button>
                         <button
                           onClick={() => onDelete(entry.id)}
-                          className="text-red-600 hover:text-red-800 transition-colors"
+                          aria-label={`Delete entry from ${formatDate(entry.timestamp)}`}
+                          className="text-red-600 hover:text-red-800 transition-colors focus:outline-none focus:ring-2 focus:ring-red-500 rounded p-1"
                         >
-                          <Trash2 size={18} />
+                          <Trash2 size={18} aria-hidden="true" />
                         </button>
                       </div>
                     </td>

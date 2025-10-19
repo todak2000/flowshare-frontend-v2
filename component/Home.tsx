@@ -16,21 +16,12 @@ import {
 import { Logo } from "./Logo";
 import { useRouter } from "next/navigation";
 
-// --- Type Definitions ---
+// Import from constants
+import { COLORS } from '../constants/ui';
+export { COLORS };
+export type { ColorShades, ColorGroup, ColorPalette } from '../constants/ui';
 
-// Color Design Palette
-export type ColorShades = Record<string, string>;
-export type ColorGroup = Record<string, ColorShades>;
-type ColorPalette = {
-  primary: {
-    blue: ColorShades;
-    purple: ColorShades;
-    cyan: ColorShades;
-  };
-  background: ColorShades;
-  text: ColorShades;
-  border: ColorShades;
-};
+// --- Type Definitions ---
 
 // Data Layer Types
 interface StatItem {
@@ -106,44 +97,6 @@ interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   children: React.ReactNode;
   className?: string;
 }
-
-// --- Color Design Palette ---
-export const COLORS: ColorPalette = {
-  primary: {
-    blue: {
-      50: "from-blue-400",
-      600: "from-blue-600",
-      700: "from-blue-700",
-      500: "bg-blue-500",
-      400: "text-blue-400",
-    },
-    purple: {
-      400: "to-purple-400",
-      600: "to-purple-600",
-      700: "to-purple-700",
-    },
-    cyan: {
-      400: "to-cyan-400",
-      500: "bg-cyan-500",
-    },
-  },
-  background: {
-    gradient: "bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900",
-    overlay: "bg-black/20",
-    glass: "bg-white/5",
-    glassHover: "bg-white/10",
-  },
-  text: {
-    primary: "text-white",
-    secondary: "text-gray-300",
-    muted: "text-gray-400",
-  },
-  border: {
-    light: "border-white/10",
-    blue: "border-blue-500/30",
-    ring: "ring-blue-500/50",
-  },
-};
 
 // --- Data Layer ---
 const LANDING_DATA: LandingData = {

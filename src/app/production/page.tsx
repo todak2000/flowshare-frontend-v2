@@ -4,12 +4,7 @@
 import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import {
-  Calendar,
   BarChart3,
-  TrendingUp,
-  Droplets,
-  Thermometer,
-  Gauge,
   Edit,
   Activity,
   Table,
@@ -17,18 +12,17 @@ import {
   Database,
   CircleQuestionMark,
   Trash2,
-  ChevronRight,
-  ChevronLeft,
 } from "lucide-react";
 import { ProductionFormData } from "../../../component/formField";
 import { ProductionEntry, UserRole } from "../../../types";
 import { COLORS } from "../../../component/Home";
+import { CHART_COLORS } from "../../../constants/ui";
+import { PRODUCTION_FORM_FIELD_CONFIGS } from "../../../constants/forms";
 import { useUser } from "../../../hook/useUser";
 import { useProductionCalculations } from "../../../hook/useProductionCalculations";
 import { firebaseService } from "../../../lib/firebase-service";
 import { formatDateForInput } from "../../../utils/date";
 import { Modal } from "../../../component/Modal";
-import { SummaryCard } from "../../../component/cards/SummaryCard";
 import {
   validateProductionEntry,
   sendNotification,
@@ -36,10 +30,12 @@ import {
 import { ProductionChart } from "../../../component/ProductionChart";
 import { PartnerPieChart } from "../../../component/PartnerPieChart";
 import LoadingSpinner from "../../../component/LoadingSpinner";
-import { formatVolume } from "../../../utils/formatVolume";
 import { formatWithOrdinal } from "../../../utils/timestampToPeriod";
 import { formatNumber } from "../../../utils/formatNumber";
 import { formatAiAnalysis } from "../../../utils/formatAiAnalysis";
+import { ProductionStats } from "./components/ProductionStats";
+import { ProductionFilters } from "./components/ProductionFilters";
+import { ProductionForm } from "./components/ProductionForm";
 
 interface Filters {
   partner: string;
@@ -70,43 +66,8 @@ interface FormFieldConfig {
 
 type TabType = "dashboard" | "data" | "analytics";
 
-const CHART_COLORS = ["#3b82f6", "#8b5cf6", "#06b6d4", "#f59e0b", "#10b981"];
-
-// Form field configurations
-const FORM_FIELDS: FormFieldConfig[] = [
-  {
-    id: "temperature",
-    key: "temperature_degF",
-    label: "Temperature",
-    unit: "°F",
-    placeholder: "Enter temperature in Fahrenheit",
-    icon: Thermometer,
-  },
-  {
-    id: "api_gravity",
-    key: "api_gravity",
-    label: "Crude API Gravity",
-    unit: "°API",
-    placeholder: "Enter gravity value in °API",
-    icon: Gauge,
-  },
-  {
-    id: "bsw",
-    key: "bsw_percent",
-    label: "Basic Sediment and Water",
-    unit: "%",
-    placeholder: "Enter BSW percentage",
-    icon: Droplets,
-  },
-  {
-    id: "production",
-    key: "gross_volume_bbl",
-    label: "Production Volume",
-    unit: "BBL",
-    placeholder: "Enter volume in barrels",
-    icon: BarChart3,
-  },
-];
+// Use imported constants
+const FORM_FIELDS = PRODUCTION_FORM_FIELD_CONFIGS;
 
 // Utility functions
 const downloadCSV = (data: ProductionEntry[]): void => {
@@ -199,36 +160,11 @@ const TabNavigation: React.FC<TabNavigationProps> = ({
             );
           })}
         </div>
-        <div className="flex items-center md:space-x-4">
-          <button
-            onClick={() => handleMonthChange("prev")}
-            className={`p-2 rounded-xl ${COLORS.background.glass} hover:${COLORS.background.glassHover} transition-colors ${COLORS.border.light} border`}
-          >
-            <ChevronLeft className={`w-5 h-5 ${COLORS.text.primary}`} />
-          </button>
-          <div className="flex items-center space-x-2">
-            <Calendar className={`w-6 h-6 ${COLORS.primary.blue[400]}`} />
-            <span
-              className={`text-lg font-medium ${COLORS.text.primary} text-center`}
-            >
-              {new Date(
-                selectedMonth.year,
-                selectedMonth.month - 1
-              ).toLocaleDateString("en-US", {
-                year: "numeric",
-                month: "long",
-              })}
-            </span>
-          </div>
-
-          <button
-            onClick={() => handleMonthChange("next")}
-            disabled={isCurrentOrFutureMonth}
-            className={`p-2 rounded-xl ${COLORS.background.glass} hover:${COLORS.background.glassHover} transition-colors ${COLORS.border.light} border disabled:opacity-50 disabled:cursor-not-allowed`}
-          >
-            <ChevronRight className={`w-5 h-5 ${COLORS.text.primary}`} />
-          </button>
-        </div>
+        <ProductionFilters
+          selectedMonth={selectedMonth}
+          onMonthChange={handleMonthChange}
+          isCurrentOrFutureMonth={isCurrentOrFutureMonth}
+        />
         <ActionButtons
           entriesCount={entriesCount}
           paginationInfo={paginationInfo}
@@ -641,107 +577,9 @@ const FormField: React.FC<FormFieldProps> = ({
   );
 };
 
-// Dynamic Form Component
-interface DynamicFormProps {
-  formData: ProductionEntry | null;
-  handleSubmit: (data: ProductionFormData) => void;
-  loading: boolean;
-  role: UserRole;
-}
-
-const DynamicForm: React.FC<DynamicFormProps> = ({
-  formData,
-  handleSubmit,
-  loading,
-  role,
-}) => {
-  const [localFormData, setLocalFormData] = useState<ProductionFormData>({
-    temperature_degF: formData ? formData.temperature_degF.toString() : "",
-    api_gravity: formData ? formData.api_gravity.toString() : "",
-    bsw_percent: formData ? formData.bsw_percent.toString() : "",
-    gross_volume_bbl: formData ? formData.gross_volume_bbl.toString() : "",
-  });
-
-  const handleInputChange = (
-    key: keyof ProductionFormData,
-    value: string
-  ): void => {
-    setLocalFormData({ ...localFormData, [key]: value });
-  };
-
-  const handleSubmitLocal = (): void => {
-    handleSubmit(localFormData);
-  };
-
-  const isValid = Object.values(localFormData).every(
-    (value) => value.trim() !== ""
-  );
-
-  return (
-    <div className="space-y-6">
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {FORM_FIELDS.map((field) => (
-          <FormField
-            key={field.id}
-            field={field}
-            value={localFormData[field.key]}
-            onChange={handleInputChange}
-            disabled={loading || role === "jv_partner"}
-          />
-        ))}
-      </div>
-
-      {/* Current Values Preview */}
-      <div
-        className={`p-4 ${COLORS.background.glass} rounded-xl ${COLORS.border.light} border`}
-      >
-        <h4 className={`text-sm font-medium ${COLORS.text.primary} mb-3`}>
-          Preview Values:
-        </h4>
-        <div className="grid grid-cols-2 gap-3 text-xs">
-          {FORM_FIELDS.map((field) => (
-            <div key={field.id} className="flex justify-between">
-              <span className={COLORS.text.muted}>{field.label}:</span>
-              <span className={COLORS.text.secondary}>
-                {localFormData[field.key] || "Not set"}{" "}
-                {localFormData[field.key] && field.unit}
-              </span>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      <div className="flex gap-3 pt-4">
-        <button
-          onClick={handleSubmitLocal}
-          disabled={loading || !isValid}
-          className={`flex-1 bg-gradient-to-r ${COLORS.primary.blue[600]} ${COLORS.primary.purple[600]} text-white py-3 px-4 rounded-xl font-medium hover:${COLORS.primary.blue[700]} hover:${COLORS.primary.purple[700]} transition-all duration-300 disabled:opacity-50 flex items-center justify-center space-x-2`}
-        >
-          {loading ? (
-            <>
-              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-              <span>Saving...</span>
-            </>
-          ) : (
-            <span>
-              {formData && role !== "jv_partner"
-                ? "Update Entry"
-                : formData && role === "jv_partner"
-                ? "Approve Entry"
-                : "Save Entry"}
-            </span>
-          )}
-        </button>
-      </div>
-    </div>
-  );
-};
-
 // Main Production Dashboard Component
 const ProductionDashboard: React.FC = () => {
-  const router = useRouter();
   const [activeTab, setActiveTab] = useState<TabType>("data");
-  const [productionData, setProductionData] = useState<ProductionEntry[]>([]);
   const [allProductionData, setAllProductionData] = useState<ProductionEntry[]>(
     []
   );
@@ -866,7 +704,7 @@ const ProductionDashboard: React.FC = () => {
       const endIndex = startIndex + 31;
       const targetPageData = allDataResult.data.slice(startIndex, endIndex);
 
-      setProductionData(targetPageData);
+      setAllProductionData(targetPageData);
       setTotal(allDataResult.total);
       setFilteredData(targetPageData);
       setCurrentPageIndex(targetPageIndex);
@@ -877,7 +715,7 @@ const ProductionDashboard: React.FC = () => {
       setHasMore(targetPageIndex < totalPages - 1);
     } catch (error) {
       console.error("Error loading production data:", error);
-      setProductionData([]);
+      setAllProductionData([]);
       setFilteredData([]);
       setTotal(0);
       setHasMore(false);
@@ -1229,47 +1067,13 @@ const ProductionDashboard: React.FC = () => {
         {/* Tab Content */}
         {activeTab === "dashboard" && (
           <div className="space-y-6">
-            {/* Summary Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-              <SummaryCard
-                title="Total Volume"
-                value={formatVolume(calculations.totalVolume).value}
-                unit={formatVolume(calculations.totalVolume).unit}
-                // value={calculations.totalVolume.toFixed(1)}
-                color="blue"
-                // unit=" BBL"
-                icon={BarChart3}
-                // trend={{ value: 12.5, isPositive: true }}
-              />
-              <SummaryCard
-                title="Avg BSW"
-                value={calculations.averageBSW.toFixed(2)}
-                color="green"
-                unit="%"
-                icon={Droplets}
-                // trend={{ value: 2.1, isPositive: false }}
-              />
-              <SummaryCard
-                title="Avg Temperature"
-                value={calculations.averageTemperature}
-                color="orange"
-                unit="°F"
-                icon={Thermometer}
-              />
-              <SummaryCard
-                title="Average API Gravity"
-                value={calculations.averageGravity.toFixed(0)}
-                unit="°API"
-                // value={
-                //   userData?.role === "jv_coordinator"
-                //     ? allProductionData.length
-                //     : filteredData.length
-                // }
-                color="purple"
-                icon={Database}
-                // trend={{ value: 8.2, isPositive: true }}
-              />
-            </div>
+            {/* Summary Stats */}
+            <ProductionStats
+              totalVolume={calculations.totalVolume}
+              averageBSW={calculations.averageBSW}
+              averageTemperature={calculations.averageTemperature}
+              averageGravity={calculations.averageGravity}
+            />
 
             {/* Charts */}
             <div
@@ -1422,24 +1226,14 @@ const ProductionDashboard: React.FC = () => {
       </div>
 
       {/* Form Modal */}
-      <Modal
+      <ProductionForm
         isOpen={showForm}
         onClose={handleCloseForm}
-        title={
-          editingEntry && userData?.role !== "jv_partner"
-            ? "Edit Production Entry"
-            : editingEntry && userData?.role === "jv_partner"
-            ? "Approve Production Data"
-            : "Add Production Entry"
-        }
-      >
-        <DynamicForm
-          formData={editingEntry}
-          handleSubmit={handleSubmit}
-          loading={loading}
-          role={userData?.role as UserRole}
-        />
-      </Modal>
+        editingEntry={editingEntry}
+        onSubmit={handleSubmit}
+        loading={loading}
+        role={userData?.role as UserRole}
+      />
 
       {/* Flagged Entry Details Modal */}
       <Modal
