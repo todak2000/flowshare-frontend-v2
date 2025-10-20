@@ -102,58 +102,25 @@ FlowShare transforms traditional hydrocarbon management from a manual, time-cons
 
 ## Architecture
 
-### System Architecture
+### High-Level System Architecture
+<p align="center">
+  <img src="public/architecture.jpg" alt="High-Level System Architecture" width="500">
+</p>
 
-```
-┌─────────────────────────────────────────────────────────────┐
-│                     FlowShare Frontend                       │
-│                    (Next.js 15 + React 19)                   │
-├─────────────────────────────────────────────────────────────┤
-│                                                               │
-│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐         │
-│  │  Dashboard  │  │ Production  │  │Reconciliation│         │
-│  │   Routes    │  │   Routes    │  │   Routes     │         │
-│  └─────────────┘  └─────────────┘  └─────────────┘         │
-│                                                               │
-│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐         │
-│  │   Agents    │  │  Insights   │  │  Terminal    │         │
-│  │   Center    │  │  Analytics  │  │  Receipts    │         │
-│  └─────────────┘  └─────────────┘  └─────────────┘         │
-│                                                               │
-├─────────────────────────────────────────────────────────────┤
-│                   Data Layer (TanStack Query)                │
-├─────────────────────────────────────────────────────────────┤
-│                                                               │
-│  ┌──────────────────────┐  ┌───────────────────────────┐   │
-│  │   Firebase Client    │  │    AI Agents Backend      │   │
-│  │  (Auth + Firestore)  │  │    (FastAPI Services)     │   │
-│  └──────────────────────┘  └───────────────────────────┘   │
-│           │                            │                     │
-└───────────┼────────────────────────────┼─────────────────────┘
-            │                            │
-            ▼                            ▼
-   ┌─────────────────┐        ┌──────────────────────┐
-   │  Firebase Cloud │        │   AI Agent Services  │
-   │  ┌───────────┐  │        │  ┌────────────────┐  │
-   │  │    Auth   │  │        │  │ Auditor Agent  │  │
-   │  ├───────────┤  │        │  ├────────────────┤  │
-   │  │ Firestore │  │        │  │Accountant Agent│  │
-   │  ├───────────┤  │        │  ├────────────────┤  │
-   │  │  Storage  │  │        │  │Communicator    │  │
-   │  └───────────┘  │        │  │     Agent      │  │
-   └─────────────────┘        │  └────────────────┘  │
-                               │                      │
-                               │   (Google Cloud Run) │
-                               └──────────────────────┘
-```
+### Agent Architecture Deep Dive 
+<p align="center">
+  <img src="public/agent.jpg" alt="Agent Architecture Deep Dive" width="500">
+</p>
 
-### Frontend Architecture Layers
+### End-to-End Data Workflow
+<p align="center">
+  <img src="public/workflow.jpg" alt="End-to-End Data Workflow" width="500">
+</p>
 
-1. **Presentation Layer**: React components, pages, and layouts
-2. **State Management**: TanStack Query for server state, React Context for UI state
-3. **Business Logic**: Services, utilities, and the allocation engine
-4. **Data Access**: Firebase SDK, API clients for agent services
-5. **Infrastructure**: Next.js App Router, middleware, error boundaries
+### CI/CD Deployment Pipeline
+<p align="center">
+  <img src="public/cicd.jpg" alt="CI/CD Deployment Pipeline" width="500">
+</p>
 
 ---
 
@@ -226,7 +193,7 @@ npm run dev --version
 
 ### 2. AI Agents Backend Setup
 
-Ensure the backend services are running and accessible. See the backend  [https://github.com/todak2000/flowshare-agents-backend/blob/main/README.md](README) for setup instructions.
+Ensure the backend services are running and accessible. See the backend  [README](https://github.com/todak2000/flowshare-agents-backend/blob/main/README.md) for setup instructions.
 
 ---
 
