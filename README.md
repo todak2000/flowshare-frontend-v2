@@ -114,7 +114,7 @@ FlowShare transforms traditional hydrocarbon management from a manual, time-cons
 
 ### End-to-End Data Workflow
 <p align="center">
-  <img src="public/workflow.jpg" alt="End-to-End Data Workflow" width="500">
+  <img src="public/worflow.jpg" alt="End-to-End Data Workflow" width="500">
 </p>
 
 ### CI/CD Deployment Pipeline
