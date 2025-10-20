@@ -1,9 +1,10 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useEffect } from 'react';
 import { firebaseService } from '../firebase-service';
 import type { ProductionEntry, CreateProductionEntryData } from '../../types';
 
 /**
- * Query hook to fetch production entries
+ * Query hook to fetch production entries with REAL-TIME updates
  * @param partnerId - Optional partner ID to filter entries
  * @param startDate - Optional start date for filtering
  * @param endDate - Optional end date for filtering
@@ -13,14 +14,44 @@ export function useProductionEntries(
   startDate?: Date,
   endDate?: Date
 ) {
+  const queryClient = useQueryClient();
+
+  // Set up real-time listener for production entries
+  useEffect(() => {
+    const unsubscribe = firebaseService.subscribeToProductionEntries(
+      (entries) => {
+        // Apply client-side filtering for date range
+        let filteredEntries = entries;
+        if (startDate || endDate) {
+          filteredEntries = entries.filter((entry) => {
+            const entryDate = new Date(entry.timestamp);
+            if (startDate && entryDate < startDate) return false;
+            if (endDate && entryDate > endDate) return false;
+            return true;
+          });
+        }
+
+        // Update React Query cache with real-time data
+        queryClient.setQueryData(
+          ['production-entries', partnerId, startDate, endDate],
+          { data: filteredEntries, hasMore: false, hasPrevious: false, total: filteredEntries.length }
+        );
+      },
+      partnerId
+    );
+
+    // Cleanup subscription on unmount
+    return () => unsubscribe();
+  }, [partnerId, startDate, endDate, queryClient]);
+
   return useQuery({
     queryKey: ['production-entries', partnerId, startDate, endDate],
     queryFn: () =>
       firebaseService.getProductionEntries(partnerId, startDate, endDate),
-    staleTime: 5 * 60 * 1000, // 5 minutes
+    staleTime: Infinity, // Data is always fresh from real-time listener
     gcTime: 10 * 60 * 1000, // 10 minutes
     retry: 2,
-    refetchOnWindowFocus: true,
+    refetchOnWindowFocus: false, // No need to refetch, we have real-time updates
   });
 }
 

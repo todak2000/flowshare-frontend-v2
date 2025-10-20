@@ -1,21 +1,37 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useEffect } from 'react';
 import { firebaseService } from '../firebase-service';
 
 /**
- * Query hook to fetch reconciliation runs
+ * Query hook to fetch reconciliation runs with REAL-TIME updates
  * @param limit - Optional limit for the number of runs to fetch
  */
 export function useReconciliationRuns(limit?: number) {
+  const queryClient = useQueryClient();
+
+  // Set up real-time listener
+  useEffect(() => {
+    const unsubscribe = firebaseService.subscribeToReconciliationRuns((runs) => {
+      const limitedRuns = limit ? runs.slice(0, limit) : runs;
+      // Update React Query cache with real-time data
+      queryClient.setQueryData(['reconciliation-runs', limit], limitedRuns);
+    });
+
+    // Cleanup subscription on unmount
+    return () => unsubscribe();
+  }, [limit, queryClient]);
+
   return useQuery({
     queryKey: ['reconciliation-runs', limit],
     queryFn: async () => {
+      // Initial fetch (subscription will handle updates)
       const runs = await firebaseService.getReconciliationRuns();
       return limit ? runs.slice(0, limit) : runs;
     },
-    staleTime: 5 * 60 * 1000, // 5 minutes
+    staleTime: Infinity, // Data is always fresh from real-time listener
     gcTime: 10 * 60 * 1000, // 10 minutes
     retry: 2,
-    refetchOnWindowFocus: true,
+    refetchOnWindowFocus: false, // No need to refetch, we have real-time updates
   });
 }
 
