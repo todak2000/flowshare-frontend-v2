@@ -1,7 +1,7 @@
 /* eslint-disable react-hooks/exhaustive-deps */
 /* eslint-disable @typescript-eslint/no-unused-vars */
 "use client";
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import {
   BarChart3,
@@ -727,18 +727,18 @@ const ProductionDashboard: React.FC = () => {
       setLoading(false);
     }
   };
-  // 3. Simplified navigation functions
-  const goToNextPage = () => {
+  // 3. Simplified navigation functions (memoized with useCallback)
+  const goToNextPage = useCallback(() => {
     if (hasMore && !loading) {
       loadProductionData("next");
     }
-  };
+  }, [hasMore, loading]);
 
-  const goToPreviousPage = () => {
+  const goToPreviousPage = useCallback(() => {
     if (hasPrevious && !loading && currentPageIndex > 0) {
       loadProductionData("previous");
     }
-  };
+  }, [hasPrevious, loading, currentPageIndex]);
 
   useEffect(() => {
     setCurrentPageIndex(0);
@@ -746,8 +746,8 @@ const ProductionDashboard: React.FC = () => {
     loadAllProductionData();
   }, [filters.startDate, filters.endDate, userData?.company, selectedMonth]);
 
-  // Add a helper function to get pagination info
-  const getPaginationInfo = () => {
+  // Memoized helper function to get pagination info
+  const getPaginationInfo = useMemo(() => {
     const startItem = currentPageIndex * 31 + 1;
     const endItem = Math.min(startItem + filteredData.length - 1, total);
 
@@ -765,7 +765,7 @@ const ProductionDashboard: React.FC = () => {
           ? Math.round((((currentPageIndex + 1) * 31) / total) * 100)
           : 0,
     };
-  };
+  }, [currentPageIndex, filteredData.length, total, hasMore, hasPrevious]);
 
   // Form handling
   const handleSubmit = async (data: ProductionFormData): Promise<void> => {
@@ -980,16 +980,17 @@ const ProductionDashboard: React.FC = () => {
     }
   };
 
-  const handleEdit = (entry: ProductionEntry): void => {
+  const handleEdit = useCallback((entry: ProductionEntry): void => {
     setEditingEntry(entry);
     setShowForm(true);
-  };
-  const handleApproval = (entry: ProductionEntry): void => {
-    setEditingEntry(entry);
-    setShowForm(true);
-  };
+  }, []);
 
-  const handleDelete = async (id: string): Promise<void> => {
+  const handleApproval = useCallback((entry: ProductionEntry): void => {
+    setEditingEntry(entry);
+    setShowForm(true);
+  }, []);
+
+  const handleDelete = useCallback(async (id: string): Promise<void> => {
     if (window.confirm("Are you sure you want to delete this entry?")) {
       try {
         await firebaseService.deleteProductionEntry(id);
@@ -1001,16 +1002,16 @@ const ProductionDashboard: React.FC = () => {
         console.error("Error deleting entry:", error);
       }
     }
-  };
+  }, []);
 
-  const handleCloseForm = (): void => {
+  const handleCloseForm = useCallback((): void => {
     setShowForm(false);
     setEditingEntry(null);
-  };
+  }, []);
 
-  const handleDownloadReport = (): void => {
+  const handleDownloadReport = useCallback((): void => {
     downloadCSV(filteredData);
-  };
+  }, [filteredData]);
 
   // Memoize date comparison
   const isCurrentOrFutureMonth = useMemo(() => {
@@ -1021,17 +1022,7 @@ const ProductionDashboard: React.FC = () => {
     );
   }, [selectedMonth.year, selectedMonth.month]);
 
-  if (userLoading) {
-    return (
-      <div
-        className={`min-h-screen ${COLORS.background.gradient} flex flex-col items-center justify-center`}
-      >
-        <LoadingSpinner message="Wait..." />
-      </div>
-    );
-  }
-
-  const handleMonthChange = (direction: "prev" | "next"): void => {
+  const handleMonthChange = useCallback((direction: "prev" | "next"): void => {
     setSelectedMonth((prev) => {
       const newDate = new Date(prev.year, prev.month - 1); // Convert to 0-indexed month
       if (direction === "prev") {
@@ -1045,7 +1036,17 @@ const ProductionDashboard: React.FC = () => {
         month: newDate.getMonth() + 1, // Convert back to 1-indexed month
       };
     });
-  };
+  }, []);
+
+  if (userLoading) {
+    return (
+      <div
+        className={`min-h-screen ${COLORS.background.gradient} flex flex-col items-center justify-center`}
+      >
+        <LoadingSpinner message="Wait..." />
+      </div>
+    );
+  }
 
   return (
     <ErrorBoundary>
@@ -1077,11 +1078,11 @@ const ProductionDashboard: React.FC = () => {
               handleMonthChange={handleMonthChange}
               selectedMonth={selectedMonth}
               isCurrentOrFutureMonth={isCurrentOrFutureMonth}
-              paginationInfo={getPaginationInfo()}
+              paginationInfo={getPaginationInfo}
               role={userData?.role as UserRole}
               entriesCount={{
-                filtered: getPaginationInfo().itemsOnCurrentPage,
-                total: getPaginationInfo().totalItems,
+                filtered: getPaginationInfo.itemsOnCurrentPage,
+                total: getPaginationInfo.totalItems,
                 // allEntries: allProductionData.length, // For showing month total
               }}
             />
@@ -1161,17 +1162,14 @@ const ProductionDashboard: React.FC = () => {
                     <span
                       className={`px-3 py-1 rounded-full text-xs ${COLORS.background.glassHover} ${COLORS.text.secondary}`}
                     >
-                      {(() => {
-                        const info = getPaginationInfo();
-                        return `${info.startItem}-${info.endItem} of ${info.totalItems}`;
-                      })()}
+                      {`${getPaginationInfo.startItem}-${getPaginationInfo.endItem} of ${getPaginationInfo.totalItems}`}
                     </span>
 
                     {total > 31 && (
                       <div className="flex items-center space-x-2 text-sm text-gray-400">
                         <span>
-                          Page {getPaginationInfo().currentPage} of{" "}
-                          {getPaginationInfo().totalPages}
+                          Page {getPaginationInfo.currentPage} of{" "}
+                          {getPaginationInfo.totalPages}
                         </span>
                       </div>
                     )}
@@ -1180,7 +1178,7 @@ const ProductionDashboard: React.FC = () => {
                     goToPreviousPage={goToPreviousPage}
                     loading={loading}
                     hasPrevious={hasPrevious}
-                    paginationInfo={getPaginationInfo()}
+                    paginationInfo={getPaginationInfo}
                     currentPage={currentPageIndex}
                     data={filteredData}
                     goToNextPage={goToNextPage}
@@ -1218,7 +1216,7 @@ const ProductionDashboard: React.FC = () => {
                 hasPrevious={hasPrevious}
                 hasMore={hasMore}
                 goToNextPage={goToNextPage}
-                paginationInfo={getPaginationInfo()}
+                paginationInfo={getPaginationInfo}
               />
             </div>
           )}

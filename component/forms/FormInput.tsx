@@ -90,7 +90,13 @@ export const FormInput: React.FC<FormInputProps> = ({
       )}
 
       {error && (
-        <p id={`${id}-error`} className="text-xs text-red-400" role="alert">
+        <p
+          id={`${id}-error`}
+          className="text-xs text-red-400"
+          role="alert"
+          aria-live="assertive"
+          aria-atomic="true"
+        >
           {error}
         </p>
       )}

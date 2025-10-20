@@ -1,4 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
+import { memo } from "react";
 import { PartnerData } from "@/app/production/page";
 import { PieChart } from "lucide-react";
 import { COLORS } from "./Home";
@@ -10,7 +11,7 @@ interface PartnerPieChartProps {
   colors: string[];
 }
 
-export const PartnerPieChart: React.FC<PartnerPieChartProps> = ({ data, title, colors }) => {
+export const PartnerPieChart = memo<PartnerPieChartProps>(function PartnerPieChart({ data, title, colors }) {
   const CustomTooltip = ({ active, payload }: any) => {
     if (active && payload && payload.length) {
       const data = payload[0].payload;
@@ -99,4 +100,4 @@ export const PartnerPieChart: React.FC<PartnerPieChartProps> = ({ data, title, c
       )}
     </div>
   );
-};
+});

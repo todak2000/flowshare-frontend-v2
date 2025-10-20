@@ -1,6 +1,7 @@
 "use client";
 import { usePathname } from "next/navigation";
 import NavigationHeader from "../../component/NavigationHeader";
+import { SkipLinks } from "../../component/SkipLinks";
 import "./globals.css";
 import { COLORS } from "../../component/Home";
 import { NotificationsProvider } from "../../lib/notifications-context";
@@ -20,8 +21,24 @@ export default function RootLayout({
       <body className={` antialiased`}>
         <Providers>
           <NotificationsProvider>
-            {!hideNavigation && <NavigationHeader />}
-            <main className={`${hideNavigation ? "" : "pt-0"} ${COLORS.background.gradient} min-h-screen h-screen`}>{children}</main>
+            {/* Skip links for keyboard navigation accessibility */}
+            <SkipLinks />
+
+            {/* Header with navigation */}
+            {!hideNavigation && (
+              <header role="banner">
+                <NavigationHeader />
+              </header>
+            )}
+
+            {/* Main content area */}
+            <main
+              id="main-content"
+              role="main"
+              className={`${hideNavigation ? "" : "pt-0"} ${COLORS.background.gradient} min-h-screen h-screen`}
+            >
+              {children}
+            </main>
           </NotificationsProvider>
         </Providers>
       </body>
