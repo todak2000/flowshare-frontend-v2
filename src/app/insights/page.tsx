@@ -10,7 +10,6 @@ import {
   TrendingUp,
   Brain,
   Activity,
-  Zap,
   ChevronRight,
   Lightbulb,
   Calendar,
@@ -45,7 +44,7 @@ interface DateRange {
   label: string;
 }
 
-type LoadingState = null | 'query' | 'predictions' | 'insights';
+type LoadingState = null | "query" | "predictions" | "insights";
 
 export default function Insights() {
   const { data: userData, loading: userLoading } = useUser();
@@ -165,11 +164,10 @@ export default function Insights() {
     }
   };
 
-
   const askAI = async () => {
     if (!query.trim()) return;
 
-    setLoadingState('query');
+    setLoadingState("query");
     try {
       // Prepare context from production data
       const context = {
@@ -207,7 +205,7 @@ export default function Insights() {
   const generatePredictions = async () => {
     if (!isJVCoordinator) return;
 
-    setLoadingState('predictions');
+    setLoadingState("predictions");
     try {
       const result = await geminiService.predictAllocation(productionData);
       setPredictions(result);
@@ -222,7 +220,7 @@ export default function Insights() {
   const generateInsights = async () => {
     if (!isJVCoordinator) return;
 
-    setLoadingState('insights');
+    setLoadingState("insights");
     try {
       const allocationData = {
         production_entries: productionData.length,
@@ -255,19 +253,6 @@ export default function Insights() {
     );
   }
 
-  const getSeverityColor = (severity: string) => {
-    switch (severity) {
-      case "high":
-        return "bg-red-500/20 text-red-400 border-red-500/30";
-      case "medium":
-        return "bg-yellow-500/20 text-yellow-400 border-yellow-500/30";
-      case "low":
-        return "bg-blue-500/20 text-blue-400 border-blue-500/30";
-      default:
-        return "bg-gray-500/20 text-gray-400 border-gray-500/30";
-    }
-  };
-
   const getTrendIcon = (trend: string) => {
     switch (trend) {
       case "increasing":
@@ -280,9 +265,24 @@ export default function Insights() {
   };
 
   const tabs = [
-    { id: "query" as const, label: "Ask FlowShareGPT", icon: MessageSquare, restricted: false },
-    { id: "predictions" as const, label: "Predictions", icon: TrendingUp, restricted: true },
-    { id: "insights" as const, label: "Strategic Insights", icon: Lightbulb, restricted: true },
+    {
+      id: "query" as const,
+      label: "Ask FlowShareGPT",
+      icon: MessageSquare,
+      restricted: false,
+    },
+    {
+      id: "predictions" as const,
+      label: "Predictions",
+      icon: TrendingUp,
+      restricted: true,
+    },
+    {
+      id: "insights" as const,
+      label: "Strategic Insights",
+      icon: Lightbulb,
+      restricted: true,
+    },
   ];
 
   return (
@@ -553,7 +553,7 @@ export default function Insights() {
                   disabled={loadingState !== null || !query.trim()}
                   className={`w-full bg-gradient-to-r ${COLORS.primary.blue[600]} ${COLORS.primary.purple[600]} text-white py-3 px-6 rounded-xl font-medium hover:opacity-90 transition-all duration-300 disabled:opacity-50 flex items-center justify-center space-x-2`}
                 >
-                  {loadingState === 'query' ? (
+                  {loadingState === "query" ? (
                     <>
                       <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
                       <span>Asking Gemini AI...</span>
@@ -593,8 +593,12 @@ export default function Insights() {
                   <div
                     className={`p-8 text-center ${COLORS.background.glass} rounded-xl border-2 border-yellow-500/30`}
                   >
-                    <Lock className={`w-16 h-16 ${COLORS.text.muted} mx-auto mb-4`} />
-                    <p className={`text-lg ${COLORS.text.primary} mb-2 font-semibold`}>
+                    <Lock
+                      className={`w-16 h-16 ${COLORS.text.muted} mx-auto mb-4`}
+                    />
+                    <p
+                      className={`text-lg ${COLORS.text.primary} mb-2 font-semibold`}
+                    >
                       JV Coordinator Access Only
                     </p>
                     <p className={`${COLORS.text.secondary}`}>
@@ -617,7 +621,7 @@ export default function Insights() {
                         disabled={loadingState !== null}
                         className={`px-4 py-2 bg-gradient-to-r ${COLORS.primary.blue[600]} ${COLORS.primary.purple[600]} text-white rounded-lg font-medium hover:opacity-90 transition-all disabled:opacity-50 flex items-center gap-2`}
                       >
-                        {loadingState === 'predictions' ? (
+                        {loadingState === "predictions" ? (
                           <>
                             <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
                             <span>Predicting...</span>
@@ -736,8 +740,12 @@ export default function Insights() {
                   <div
                     className={`p-8 text-center ${COLORS.background.glass} rounded-xl border-2 border-yellow-500/30`}
                   >
-                    <Lock className={`w-16 h-16 ${COLORS.text.muted} mx-auto mb-4`} />
-                    <p className={`text-lg ${COLORS.text.primary} mb-2 font-semibold`}>
+                    <Lock
+                      className={`w-16 h-16 ${COLORS.text.muted} mx-auto mb-4`}
+                    />
+                    <p
+                      className={`text-lg ${COLORS.text.primary} mb-2 font-semibold`}
+                    >
                       JV Coordinator Access Only
                     </p>
                     <p className={`${COLORS.text.secondary}`}>
@@ -760,7 +768,7 @@ export default function Insights() {
                         disabled={loadingState !== null}
                         className={`px-4 py-2 bg-gradient-to-r ${COLORS.primary.blue[600]} ${COLORS.primary.purple[600]} text-white rounded-lg font-medium hover:opacity-90 transition-all disabled:opacity-50 flex items-center gap-2`}
                       >
-                        {loadingState === 'insights' ? (
+                        {loadingState === "insights" ? (
                           <>
                             <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
                             <span>Generating...</span>
