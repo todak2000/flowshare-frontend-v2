@@ -298,14 +298,13 @@ export default function Insights() {
             </div>
             <div>
               <h1 className={`text-3xl font-bold ${COLORS.text.primary}`}>
-                AI-Powered Insights
+                Insights
               </h1>
               <p
                 className={`${COLORS.text.secondary} flex items-center space-x-2`}
               >
                 <Brain className="w-4 h-4" />
-                <span>Powered by Google Gemini 1.5 Pro</span>
-                <Zap className="w-4 h-4 text-yellow-400" />
+                <span>Powered by FlowShareGPT</span>
               </p>
             </div>
           </div>
@@ -575,7 +574,7 @@ export default function Insights() {
                       className={`font-semibold ${COLORS.text.primary} mb-2 flex items-center space-x-2`}
                     >
                       <Brain className="w-4 h-4" />
-                      <span>AI Answer:</span>
+                      <span>FlowShareGPT Answer:</span>
                     </h3>
                     <div
                       className={`${COLORS.text.secondary} whitespace-pre-wrap`}
@@ -637,7 +636,7 @@ export default function Insights() {
                           className={`w-16 h-16 ${COLORS.text.muted} mx-auto mb-4`}
                         />
                         <p className={`text-lg ${COLORS.text.secondary} mb-2`}>
-                          AI-powered predictions ready
+                          FlowShareGPT-powered predictions ready
                         </p>
                         <p className={`${COLORS.text.muted}`}>
                           Click Generate Predictions to see forecasts
@@ -780,7 +779,7 @@ export default function Insights() {
                           className={`w-16 h-16 ${COLORS.text.muted} mx-auto mb-4`}
                         />
                         <p className={`text-lg ${COLORS.text.secondary} mb-2`}>
-                          AI-generated insights ready
+                          FlowShareGPT-generated insights ready
                         </p>
                         <p className={`${COLORS.text.muted}`}>
                           Get strategic recommendations and analysis
@@ -805,9 +804,8 @@ export default function Insights() {
           <div className="inline-flex items-center space-x-2 px-4 py-2 bg-blue-500/10 rounded-full">
             <Sparkles className="w-4 h-4 text-blue-400" />
             <span className={`text-sm ${COLORS.text.secondary}`}>
-              Powered by Google Gemini 1.5 Pro • Deployed on Cloud Run
+              Powered by FlowShareGPT
             </span>
-            <Zap className="w-4 h-4 text-yellow-400" />
           </div>
         </div>
       </div>
