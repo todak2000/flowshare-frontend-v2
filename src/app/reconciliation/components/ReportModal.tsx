@@ -11,6 +11,20 @@ import { ReconciliationReport } from "../../../../types";
 import { Timestamp } from "firebase/firestore";
 import { formatFirebaseTimestampRange } from "../../../../utils/timestampToPeriod";
 
+/**
+ * Utility function to clean AI-generated HTML content
+ * Removes markdown code block markers (```html ... ```)
+ */
+const cleanAIContent = (html: string): string => {
+  if (!html) return '';
+
+  // Remove markdown code blocks: ```html ... ``` or ``` ... ```
+  return html
+    .replace(/```(?:html|xml|css|javascript|js)?\s*\n?/g, '')
+    .replace(/```\s*$/g, '')
+    .trim();
+};
+
 interface ModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -570,7 +584,7 @@ export const ReportModal: React.FC<ReportModalProps> = ({
               className={`${COLORS.text.primary} text-sm leading-relaxed ai-summary-content`}
               style={{ fontFamily: "system-ui, -apple-system, sans-serif" }}
               dangerouslySetInnerHTML={{
-                __html: report.reconciliation.ai_summary,
+                __html: cleanAIContent(report.reconciliation.ai_summary),
               }}
             />
             <div className="mt-3 pt-3 border-t border-white/10">
