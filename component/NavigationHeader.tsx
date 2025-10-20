@@ -70,10 +70,10 @@ const getNavigationItems = (
         active: currentPath.includes("/production"),
       },
       {
-        label: "AI Insights",
-        href: "/ai-insights",
+        label: "Insights",
+        href: "/insights",
         icon: Sparkles,
-        active: currentPath.includes("/ai-insights"),
+        active: currentPath.includes("/insights"),
       },
     ],
     jv_coordinator: [
@@ -84,10 +84,10 @@ const getNavigationItems = (
         active: currentPath.includes("/production"),
       },
       {
-        label: "AI Insights",
-        href: "/ai-insights",
+        label: "Insights",
+        href: "/insights",
         icon: Sparkles,
-        active: currentPath.includes("/ai-insights"),
+        active: currentPath.includes("/insights"),
       },
       {
         label: "Reconciliation",
@@ -110,10 +110,10 @@ const getNavigationItems = (
         active: currentPath.includes("/production"),
       },
       {
-        label: "AI Insights",
-        href: "/ai-insights",
+        label: "Insights",
+        href: "/insights",
         icon: Sparkles,
-        active: currentPath.includes("/ai-insights"),
+        active: currentPath.includes("/insights"),
       },
       {
         label: "Reconciliation",
@@ -130,10 +130,10 @@ const getNavigationItems = (
         active: currentPath.includes("/production"),
       },
       {
-        label: "AI Insights",
-        href: "/ai-insights",
+        label: "Insights",
+        href: "/insights",
         icon: Sparkles,
-        active: currentPath.includes("/ai-insights"),
+        active: currentPath.includes("/insights"),
       },
       {
         label: "Reconciliation",
