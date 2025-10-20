@@ -23,7 +23,7 @@ import { ErrorBoundary } from "../../../component/ErrorBoundary";
 // Main Reconciliation Page Component
 const ReconciliationPage: React.FC = () => {
   const router = useRouter();
-  const { auth, data: userData, loading: userLoading } = useUser();
+  const { auth, loading: userLoading } = useUser();
 
   // React Query hooks
   const { data: stats, runs, isLoading: runsLoading } = useReconciliationStats(5);
@@ -154,9 +154,7 @@ const ReconciliationPage: React.FC = () => {
         <ReconciliationTable
           reconciliationRuns={reconciliationRuns}
           loading={loading}
-          userRole={userData?.role}
           onViewReport={handleViewReport}
-          onShowRunForm={() => setShowRunForm(true)}
         />
       </div>
 

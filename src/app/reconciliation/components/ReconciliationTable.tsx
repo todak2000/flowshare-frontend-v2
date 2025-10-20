@@ -16,17 +16,13 @@ import LoadingSpinner from "../../../../component/LoadingSpinner";
 interface ReconciliationTableProps {
   reconciliationRuns: ReconciliationRun[];
   loading: boolean;
-  userRole?: string;
   onViewReport: (run: ReconciliationRun) => void;
-  onShowRunForm: () => void;
 }
 
 export const ReconciliationTable: React.FC<ReconciliationTableProps> = ({
   reconciliationRuns,
   loading,
-  userRole,
-  onViewReport,
-  onShowRunForm,
+  onViewReport
 }) => {
   return (
     <div
@@ -58,16 +54,6 @@ export const ReconciliationTable: React.FC<ReconciliationTableProps> = ({
             <p className={`text-lg ${COLORS.text.secondary} mb-2`}>
               No reconciliation runs yet
             </p>
-            {userRole === "jv_coordinator" ? (
-              <button
-                onClick={onShowRunForm}
-                className="text-green-400 hover:text-green-300 font-medium hover:underline transition-colors"
-              >
-                Run your first reconciliation
-              </button>
-            ) : (
-              ""
-            )}
           </div>
         ) : (
           <table className="w-full">
