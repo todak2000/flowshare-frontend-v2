@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 // src/app/terminal/page.tsx
 'use client'
 import { useState, useEffect } from 'react';
@@ -78,9 +79,11 @@ export default function TerminalReceiptPage() {
       }
 
       handleCloseForm();
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error saving terminal receipt:', error);
-      alert('Error saving terminal receipt. Please try again.');
+      // Show the actual error message from the service
+      // This will include helpful info about reconciliation failures
+      alert(error.message || 'Error saving terminal receipt. Please try again.');
     }
   };
 
