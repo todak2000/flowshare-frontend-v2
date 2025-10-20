@@ -1803,5 +1803,46 @@ export class FirebaseService {
       }
     );
   }
+
+  /**
+   * Clear all documents from a collection (for demo/testing purposes)
+   * WARNING: This permanently deletes all documents in the collection
+   */
+  async clearCollection(collectionName: string): Promise<void> {
+    try {
+      console.log(`Starting to clear collection: ${collectionName}`);
+
+      const collectionRef = collection(db, collectionName);
+      const querySnapshot = await getDocs(collectionRef);
+
+      if (querySnapshot.empty) {
+        console.log(`Collection ${collectionName} is already empty`);
+        return;
+      }
+
+      const batchSize = 500; // Firestore batch write limit
+      const totalDocs = querySnapshot.docs.length;
+      let deletedCount = 0;
+
+      // Process deletions in batches
+      for (let i = 0; i < querySnapshot.docs.length; i += batchSize) {
+        const batch = writeBatch(db);
+        const batchDocs = querySnapshot.docs.slice(i, i + batchSize);
+
+        batchDocs.forEach((docSnapshot) => {
+          batch.delete(docSnapshot.ref);
+        });
+
+        await batch.commit();
+        deletedCount += batchDocs.length;
+        console.log(`Deleted ${deletedCount}/${totalDocs} documents from ${collectionName}`);
+      }
+
+      console.log(`Successfully cleared collection: ${collectionName} (${deletedCount} documents deleted)`);
+    } catch (error: any) {
+      console.error(`Error clearing collection ${collectionName}:`, error);
+      this.handleFirebaseError(error, `Clear Collection ${collectionName}`);
+    }
+  }
 }
 export const firebaseService = new FirebaseService();

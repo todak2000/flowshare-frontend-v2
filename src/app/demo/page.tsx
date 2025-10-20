@@ -11,6 +11,10 @@ import {
   User,
   Eye,
   EyeOff,
+  Trash2,
+  Lock,
+  Database,
+  Calendar as CalendarIcon,
 } from "lucide-react";
 import { firebaseService } from "../../../lib/firebase-service";
 import { GenerationStats, Log, MonthInfo } from "../../../types";
@@ -44,16 +48,27 @@ interface DemoAccount {
   permissions: string[];
 }
 
+type DateRangePreset = "current_month" | "last_month" | "last_3_months" | "last_6_months" | "custom";
+
 const ProductionDataGenerator = () => {
   const [isGenerating, setIsGenerating] = useState(false);
+  const [isClearing, setIsClearing] = useState(false);
   const [progress, setProgress] = useState(0);
   const [logs, setLogs] = useState<Log[]>([]);
   const [stats, setStats] = useState<GenerationStats | null>(null);
-  const [showPassword, setShowPassword] = useState<{ [key: string]: boolean }>(
-    {}
-  );
+  const [showPassword, setShowPassword] = useState<{ [key: string]: boolean }>({});
 
-  const canGenerateData = false;
+  // Date range controls
+  const [dateRangePreset, setDateRangePreset] = useState<DateRangePreset>("last_3_months");
+  const [customStartDate, setCustomStartDate] = useState("");
+  const [customEndDate, setCustomEndDate] = useState("");
+
+  // Admin controls
+  const [showAdminPanel, setShowAdminPanel] = useState(false);
+  const [adminPassword, setAdminPassword] = useState("");
+  const [showAdminPassword, setShowAdminPassword] = useState(false);
+
+  const ADMIN_PASSWORD = "FlowShare2024!"; // Admin password for database clearing
   const partners = ["Test Oil and Gas", "TUPNI", "ACE", "WINDY"];
 
   const demoAccounts: DemoAccount[] = [
@@ -65,16 +80,15 @@ const ProductionDataGenerator = () => {
       permissions: [
         "View Production Data",
         "Enter Daily Reports",
-        // "Update Field Parameters",
       ],
     },
     {
       email: "Qwert@gmail.com",
       password: "Qwerty123",
       role: "JV Coordinator",
-      description: "Joint venture coordination and data reconcilliation",
+      description: "Joint venture coordination and data reconciliation",
       permissions: [
-        "Initiate/View reconcilliation data",
+        "Initiate/View reconciliation data",
         "Issue terminal receipt",
         "Update Production Data for Partner",
       ],
@@ -86,7 +100,7 @@ const ProductionDataGenerator = () => {
       description: "Partner access, limited to own data and reports",
       permissions: [
         "View Own Production Data",
-        "View reconcilliation data",
+        "View reconciliation data",
         "Approve updated Production data",
       ],
     },
@@ -107,6 +121,60 @@ const ProductionDataGenerator = () => {
     }));
   };
 
+  // Calculate date range based on preset
+  const getDateRange = (): { start: Date; end: Date; months: MonthInfo[] } => {
+    const now = new Date();
+    const currentYear = now.getFullYear();
+    const currentMonth = now.getMonth();
+
+    let startDate: Date;
+    let endDate: Date = new Date(currentYear, currentMonth + 1, 0); // Last day of current month
+
+    if (dateRangePreset === "custom") {
+      if (!customStartDate || !customEndDate) {
+        throw new Error("Please select both start and end dates for custom range");
+      }
+      startDate = new Date(customStartDate);
+      endDate = new Date(customEndDate);
+    } else {
+      switch (dateRangePreset) {
+        case "current_month":
+          startDate = new Date(currentYear, currentMonth, 1);
+          break;
+        case "last_month":
+          startDate = new Date(currentYear, currentMonth - 1, 1);
+          endDate = new Date(currentYear, currentMonth, 0);
+          break;
+        case "last_3_months":
+          startDate = new Date(currentYear, currentMonth - 2, 1);
+          break;
+        case "last_6_months":
+          startDate = new Date(currentYear, currentMonth - 5, 1);
+          break;
+        default:
+          startDate = new Date(currentYear, currentMonth - 2, 1);
+      }
+    }
+
+    // Generate months array
+    const months: MonthInfo[] = [];
+    const current = new Date(startDate);
+
+    while (current <= endDate) {
+      months.push({
+        year: current.getFullYear(),
+        month: current.getMonth(),
+        name: current.toLocaleDateString("en-US", {
+          month: "long",
+          year: "numeric",
+        }),
+      });
+      current.setMonth(current.getMonth() + 1);
+    }
+
+    return { start: startDate, end: endDate, months };
+  };
+
   const generateRealisticData = (
     partner: string,
     date: Date
@@ -121,12 +189,11 @@ const ProductionDataGenerator = () => {
     const random = (s: number) =>
       Math.sin(s) * 10000 - Math.floor(Math.sin(s) * 10000);
 
-    // ✅ FIXED: More realistic and controlled volume ranges
     const partnerRanges = {
       "Test Oil and Gas": { min: 20000, max: 30000, variance: 0.15 },
       TUPNI: { min: 18000, max: 28000, variance: 0.12 },
       ACE: { min: 35000, max: 50000, variance: 0.18 },
-      WINDY: { min: 30000, max: 45000, variance: 0.15 }, // ✅ Reduced max to prevent extreme values
+      WINDY: { min: 30000, max: 45000, variance: 0.15 },
     };
 
     type PartnerKey = keyof typeof partnerRanges;
@@ -140,63 +207,40 @@ const ProductionDataGenerator = () => {
 
     const { min, max, variance } = range;
 
-    // ✅ Volume calculation with realistic constraints
     const baseVolume = min + Math.abs(random(seed)) * (max - min);
-
-    // ✅ FIXED: More moderate seasonal variation (5% instead of 10%)
     const seasonalFactor = 1 + 0.05 * Math.sin((dayOfYear / 365) * 2 * Math.PI);
-
-    // ✅ FIXED: Controlled daily variation within variance limits
     const dailyVariation = 1 + (random(seed + 1) - 0.5) * variance;
 
-    // ✅ Ensure volume stays within reasonable bounds
     const grossVolume = Math.max(
-      min * 0.8, // Minimum floor
+      min * 0.8,
       Math.min(
-        max * 1.2, // Maximum ceiling
+        max * 1.2,
         Math.round(baseVolume * seasonalFactor * dailyVariation)
       )
     );
 
-    // ✅ FIXED: BSW calculation with strict constraints
-    // Base BSW between 8% and 15% (realistic range for most fields)
-    const bswBase = 8 + Math.abs(random(seed + 2)) * 7; // 8% to 15%
-
-    // ✅ FIXED: Small volume-dependent variation (max +3%)
+    const bswBase = 8 + Math.abs(random(seed + 2)) * 7;
     const volumeBSWFactor = Math.min(
       3,
       ((grossVolume - min) / (max - min)) * 2
     );
-
-    // ✅ FIXED: Add small random daily variation (±1%)
-    const dailyBSWVariation = (random(seed + 10) - 0.5) * 2; // ±1%
-
+    const dailyBSWVariation = (random(seed + 10) - 0.5) * 2;
     const rawBSW = bswBase + volumeBSWFactor + dailyBSWVariation;
-
-    // ✅ CRITICAL: Hard cap BSW at 18% maximum (well below methodology limit of 20%)
     const bsw = Math.max(5, Math.min(18, Math.round(rawBSW * 100) / 100));
 
-    // ✅ FIXED: Temperature with realistic seasonal and operational ranges
-    // Base temperature follows seasonal pattern (65°F to 85°F)
     const tempBase = 75 + 8 * Math.sin((dayOfYear / 365) * 2 * Math.PI);
-
-    // ✅ FIXED: Daily operational variation (±5°F)
-    const dailyTempVariation = (random(seed + 3) - 0.5) * 10; // ±5°F
-
+    const dailyTempVariation = (random(seed + 3) - 0.5) * 10;
     const rawTemp = tempBase + dailyTempVariation;
-
-    // ✅ FIXED: Hard constraints for operational temperature range
     const temperature = Math.max(
       60,
       Math.min(95, Math.round(rawTemp * 10) / 10)
     );
 
-    // ✅ FIXED: API Gravity with partner-specific ranges
     const partnerAPIRanges = {
-      "Test Oil and Gas": { base: 32, variation: 3 }, // 29-35°API
-      TUPNI: { base: 30, variation: 2.5 }, // 27.5-32.5°API
-      ACE: { base: 34, variation: 3 }, // 31-37°API
-      WINDY: { base: 33, variation: 2.5 }, // 30.5-35.5°API
+      "Test Oil and Gas": { base: 32, variation: 3 },
+      TUPNI: { base: 30, variation: 2.5 },
+      ACE: { base: 34, variation: 3 },
+      WINDY: { base: 33, variation: 2.5 },
     };
 
     const apiRange = (
@@ -206,32 +250,13 @@ const ProductionDataGenerator = () => {
       >
     )[partner as PartnerKey] ?? { base: 32, variation: 3 };
 
-    // ✅ API gravity with small daily variation
     const apiBase =
       apiRange.base + (random(seed + 4) - 0.5) * apiRange.variation * 2;
-
-    // ✅ Small quality variation (±1°API)
     const qualityVariation = (random(seed + 5) - 0.5) * 2;
-
     const rawAPI = apiBase + qualityVariation;
-
-    // ✅ FIXED: Hard constraints within methodology limits (10-45°API)
     const apiGravity = Math.max(25, Math.min(40, Math.round(rawAPI * 10) / 10));
 
-    // ✅ Validation logging for extreme values
-    if (bsw > 15) {
-      console.warn(
-        `High BSW generated: ${partner} - ${bsw}% on ${date.toDateString()}`
-      );
-    }
-
-    if (grossVolume > max * 1.1) {
-      console.warn(
-        `High volume generated: ${partner} - ${grossVolume.toLocaleString()} bbl on ${date.toDateString()}`
-      );
-    }
-
-    const createdBy = "test_user_system";
+    const createdBy = "demo_system";
 
     return {
       partner,
@@ -244,12 +269,9 @@ const ProductionDataGenerator = () => {
     };
   };
 
-  // ✅ ADDITIONAL: Validation function to check generated data
-
   const validateGeneratedEntry = (entry: ProductionEntryy): string[] => {
     const errors: string[] = [];
 
-    // Check methodology constraints
     if (entry.bsw_percent < 0 || entry.bsw_percent >= 20) {
       errors.push(`BSW ${entry.bsw_percent}% outside acceptable range (0-20%)`);
     }
@@ -275,7 +297,6 @@ const ProductionDataGenerator = () => {
     return errors;
   };
 
-  // ✅ Enhanced generateMonthData with validation
   const generateMonthData = (
     year: number,
     month: number
@@ -289,7 +310,6 @@ const ProductionDataGenerator = () => {
       partners.forEach((partner) => {
         const entry = generateRealisticData(partner, date);
 
-        // ✅ Validate each entry
         const errors = validateGeneratedEntry(entry);
         if (errors.length > 0) {
           console.warn(
@@ -324,25 +344,9 @@ const ProductionDataGenerator = () => {
 
     try {
       addLog("🚀 Starting production data generation...", "info");
-
       addLog(`📊 Partners: ${partners.join(", ")}`, "info");
 
-      const now = new Date();
-      const currentYear = now.getFullYear();
-      const currentMonth = now.getMonth();
-
-      const months: MonthInfo[] = [];
-      for (let i = 6; i >= 0; i--) {
-        const targetDate = new Date(currentYear, currentMonth - i, 1);
-        months.push({
-          year: targetDate.getFullYear(),
-          month: targetDate.getMonth(),
-          name: targetDate.toLocaleDateString("en-US", {
-            month: "long",
-            year: "numeric",
-          }),
-        });
-      }
+      const { months } = getDateRange();
 
       addLog(
         `📅 Generating data for ${months.length} months: ${months
@@ -418,6 +422,53 @@ const ProductionDataGenerator = () => {
     }
   };
 
+  const clearDatabase = async () => {
+    if (adminPassword !== ADMIN_PASSWORD) {
+      addLog("❌ Error: Invalid admin password", "error");
+      return;
+    }
+
+    if (!confirm("⚠️ WARNING: This will permanently delete ALL production entries, terminal receipts, reconciliation runs, and allocation results. This action cannot be undone. Are you sure?")) {
+      return;
+    }
+
+    setIsClearing(true);
+    setLogs([]);
+
+    try {
+      addLog("🗑️  Starting database cleanup...", "info");
+
+      // Clear production entries
+      addLog("📦 Clearing production entries...", "info");
+      await firebaseService.clearCollection("production_entries");
+      addLog("✅ Production entries cleared", "success");
+
+      // Clear terminal receipts
+      addLog("🧾 Clearing terminal receipts...", "info");
+      await firebaseService.clearCollection("terminal_receipts");
+      addLog("✅ Terminal receipts cleared", "success");
+
+      // Clear reconciliation runs
+      addLog("🔄 Clearing reconciliation runs...", "info");
+      await firebaseService.clearCollection("reconciliation_runs");
+      addLog("✅ Reconciliation runs cleared", "success");
+
+      // Clear allocation results
+      addLog("📊 Clearing allocation results...", "info");
+      await firebaseService.clearCollection("allocation_results");
+      addLog("✅ Allocation results cleared", "success");
+
+      addLog("🎉 Database cleanup completed successfully!", "success");
+      setAdminPassword("");
+      setShowAdminPanel(false);
+    } catch (error: any) {
+      addLog(`❌ Error during cleanup: ${error.message}`, "error");
+      console.error("Database cleanup error:", error);
+    } finally {
+      setIsClearing(false);
+    }
+  };
+
   const clearLogs = () => {
     setLogs([]);
     setStats(null);
@@ -425,6 +476,7 @@ const ProductionDataGenerator = () => {
   };
 
   const router = useRouter();
+
   return (
     <div
       className={`min-h-screen pt-[96px] ${COLORS.background.gradient} from-slate-50 to-slate-100 p-6`}
@@ -447,8 +499,6 @@ const ProductionDataGenerator = () => {
               </button>
             </p>
           </div>
-
-          {/* Demo Accounts Grid */}
 
           <div className="grid md:grid-cols-3 gap-4">
             {demoAccounts.map((account, index) => (
@@ -516,10 +566,73 @@ const ProductionDataGenerator = () => {
           </div>
         </Card>
 
+        {/* Date Range Selection */}
+        <Card className="mb-6">
+          <h3 className="text-lg font-semibold text-slate-800 flex items-center mb-4">
+            <CalendarIcon className="mr-2 text-purple-500" size={20} />
+            Data Generation Settings
+          </h3>
+
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-2">
+                Select Date Range
+              </label>
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                {[
+                  { value: "current_month", label: "Current Month" },
+                  { value: "last_month", label: "Last Month" },
+                  { value: "last_3_months", label: "Last 3 Months" },
+                  { value: "last_6_months", label: "Last 6 Months" },
+                  { value: "custom", label: "Custom Range" },
+                ].map((preset) => (
+                  <button
+                    key={preset.value}
+                    onClick={() => setDateRangePreset(preset.value as DateRangePreset)}
+                    className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                      dateRangePreset === preset.value
+                        ? "bg-blue-500 text-white shadow-md"
+                        : "bg-slate-100 text-slate-700 hover:bg-slate-200"
+                    }`}
+                  >
+                    {preset.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {dateRangePreset === "custom" && (
+              <div className="grid md:grid-cols-2 gap-4 p-4 bg-slate-50 rounded-lg">
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-2">
+                    Start Date
+                  </label>
+                  <input
+                    type="date"
+                    value={customStartDate}
+                    onChange={(e) => setCustomStartDate(e.target.value)}
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-2">
+                    End Date
+                  </label>
+                  <input
+                    type="date"
+                    value={customEndDate}
+                    onChange={(e) => setCustomEndDate(e.target.value)}
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  />
+                </div>
+              </div>
+            )}
+          </div>
+        </Card>
+
         {/* Control Panel */}
         <Card className="mb-6">
           <div className="grid md:grid-cols-2 gap-6 mb-6">
-            {/* Partners */}
             <div className="flex items-start space-x-3">
               <Users className="text-blue-500 mt-1" size={20} />
               <div>
@@ -539,7 +652,6 @@ const ProductionDataGenerator = () => {
               </div>
             </div>
 
-            {/* Scope */}
             <div className="flex items-start space-x-3">
               <Calendar className="text-green-500 mt-1" size={20} />
               <div>
@@ -547,9 +659,9 @@ const ProductionDataGenerator = () => {
                   Data Scope
                 </h3>
                 <div className="text-sm text-slate-600 space-y-1">
-                  <div>• Current + previous 6 months</div>
+                  <div>• Selected date range</div>
                   <div>• Daily entries per partner</div>
-                  <div>• ~840 entries</div>
+                  <div>• ~{partners.length * 30} entries/month</div>
                   <div>• Realistic oil metrics</div>
                 </div>
               </div>
@@ -559,7 +671,7 @@ const ProductionDataGenerator = () => {
           <div className="flex flex-wrap gap-3">
             <Button
               onClick={generateProductionData}
-              disabled={isGenerating || !canGenerateData}
+              disabled={isGenerating}
               loading={isGenerating}
               icon={<Play size={20} />}
             >
@@ -572,10 +684,79 @@ const ProductionDataGenerator = () => {
             >
               Clear Logs
             </Button>
+            <Button
+              onClick={() => setShowAdminPanel(!showAdminPanel)}
+              disabled={isGenerating || isClearing}
+              variant="secondary"
+              icon={<Database size={20} />}
+            >
+              {showAdminPanel ? "Hide" : "Show"} Admin Controls
+            </Button>
           </div>
 
           {isGenerating && <ProgressBar progress={progress} />}
         </Card>
+
+        {/* Admin Panel */}
+        {showAdminPanel && (
+          <Card className="mb-6 border-2 border-red-300 bg-red-50">
+            <div className="flex items-center space-x-2 mb-4">
+              <Lock className="text-red-600" size={20} />
+              <h3 className="text-lg font-semibold text-red-800">
+                Admin Database Controls
+              </h3>
+            </div>
+
+            <div className="bg-white p-4 rounded-lg space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-2">
+                  Admin Password
+                </label>
+                <div className="flex items-center space-x-2">
+                  <input
+                    type={showAdminPassword ? "text" : "password"}
+                    value={adminPassword}
+                    onChange={(e) => setAdminPassword(e.target.value)}
+                    placeholder="Enter admin password"
+                    className="flex-1 px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500"
+                  />
+                  <button
+                    onClick={() => setShowAdminPassword(!showAdminPassword)}
+                    className="text-slate-400 hover:text-slate-600 p-2"
+                  >
+                    {showAdminPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                  </button>
+                </div>
+      
+              </div>
+
+              <Button
+                onClick={clearDatabase}
+                disabled={!adminPassword || isClearing}
+                loading={isClearing}
+                icon={<Trash2 size={20} />}
+                variant="danger"
+              >
+                {isClearing ? "Clearing Database..." : "Clear All Database Collections"}
+              </Button>
+
+              <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
+                <div className="flex items-start space-x-2">
+                  <AlertCircle className="text-amber-600 mt-0.5" size={16} />
+                  <div className="text-xs text-amber-800">
+                    <strong>Warning:</strong> This action will permanently delete all:
+                    <ul className="list-disc ml-4 mt-1">
+                      <li>Production entries</li>
+                      <li>Terminal receipts</li>
+                      <li>Reconciliation runs</li>
+                      <li>Allocation results</li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </Card>
+        )}
 
         {/* Stats */}
         {stats && (
@@ -588,25 +769,25 @@ const ProductionDataGenerator = () => {
         {logs.length > 0 && (
           <Card>
             <h3 className="text-lg font-semibold text-slate-800 mb-4">
-              Generation Logs
+              Operation Logs
             </h3>
             <LogViewer logs={logs} />
           </Card>
         )}
 
-        {/* Warning */}
-        <div className="mt-6 bg-amber-50 border border-amber-200 rounded-lg p-4">
+        {/* Info Notice */}
+        <div className="mt-6 bg-blue-50 border border-blue-200 rounded-lg p-4">
           <div className="flex items-start space-x-3">
-            <AlertCircle className="text-amber-500 mt-0.5" size={20} />
+            <AlertCircle className="text-blue-500 mt-0.5" size={20} />
             <div>
-              <h4 className="font-medium text-amber-800 mb-1">
-                Testing Environment Notice
+              <h4 className="font-medium text-blue-800 mb-1">
+                Demo Environment Notice
               </h4>
-              <p className="text-sm text-amber-700">
-                This tool generates test data for development and testing
+              <p className="text-sm text-blue-700">
+                This tool generates realistic test data for demonstration and testing
                 purposes. Use the demo accounts above to test different user
-                roles and permissions. Ensure you&apos;re connected to your test
-                database before running.
+                roles and permissions. Select your desired date range and click
+                &quot;Generate Data&quot; to populate the database.
               </p>
             </div>
           </div>
