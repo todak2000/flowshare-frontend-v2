@@ -2,7 +2,7 @@
 'use client'
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import React, { useState } from 'react';
-import { AllocationEngine } from '../../../lib/allocation-engine';
+import { calculateAllocations } from '../../../lib/agents-api';
 
 interface LogEntry {
   message: string;
@@ -185,9 +185,7 @@ const AllocationTestPage: React.FC = () => {
 
     try {
       addLog("=== DYNAMIC ALLOCATION ENGINE TEST ===", 'header');
-      addLog("Initializing AllocationEngine...");
-
-      const engine = new AllocationEngine();
+      addLog("Initializing Accountant Agent connection...");
 
       // Get enabled partners
       const enabledPartners = partnerData.filter(p => p.enabled);
@@ -227,17 +225,47 @@ const AllocationTestPage: React.FC = () => {
       addLog(`Total Gross Input: ${totalGrossInput.toLocaleString()} bbl`);
       addLog("");
 
-      addLog("Running allocation calculation...", 'info');
+      addLog("Running allocation calculation using Accountant Agent...", 'info');
       await new Promise<void>(resolve => setTimeout(resolve, 1000));
 
-      const result = engine.calculateAllocation(testEntries, testTerminal as any);
+      // Call Accountant Agent API
+      const allocations = await calculateAllocations({
+        receipt_id: 'test-receipt',
+        receipt_data: {
+          terminal_volume_bbl: testTerminal.final_volume_bbl,
+          api_gravity: testTerminal.api_gravity,
+          production_entries: testEntries
+        }
+      });
 
-      addLog("CALCULATED RESULTS:", 'section');
+      // Calculate totals from agent response
+      const totalNetVolume = allocations.reduce((sum, a) => sum + a.net_volume, 0);
+      const totalAllocated = allocations.reduce((sum, a) => sum + a.allocated_volume, 0);
+      const totalLoss = allocations.reduce((sum, a) => sum + a.volume_loss, 0);
+      const shrinkageFactor = ((totalNetVolume - totalAllocated) / totalNetVolume * 100);
+
+      // Create result object compatible with existing code
+      const result = {
+        total_input_volume: totalGrossInput,
+        total_net_volume: totalNetVolume,
+        total_terminal_volume: testTerminal.final_volume_bbl,
+        shrinkage_factor: shrinkageFactor,
+        allocation_results: allocations.map(a => ({
+          partner: a.partner,
+          input_volume: a.gross_volume,
+          net_volume: a.net_volume,
+          allocated_volume: a.allocated_volume,
+          percentage: a.percentage,
+          volume_loss: a.volume_loss
+        }))
+      };
+
+      addLog("CALCULATED RESULTS (from Accountant Agent):", 'section');
       result.allocation_results.forEach((allocation, index) => {
         addLog(`${allocation.partner} Net Volume: ${allocation.net_volume} bbl`);
       });
-      addLog(`Total Net Volume: ${result.total_net_volume} bbl`);
-      addLog(`Shrinkage Factor: ${result.shrinkage_factor}%`);
+      addLog(`Total Net Volume: ${result.total_net_volume.toFixed(2)} bbl`);
+      addLog(`Shrinkage Factor: ${result.shrinkage_factor.toFixed(2)}%`);
       addLog("");
 
       addLog("ALLOCATION RESULTS:", 'section');
@@ -248,13 +276,8 @@ const AllocationTestPage: React.FC = () => {
       addLog("");
 
       addLog("VOLUME ANALYSIS:", 'section');
-      let totalAllocated = 0;
-      let totalLoss = 0;
       result.allocation_results.forEach(allocation => {
-        const loss = allocation.input_volume - allocation.allocated_volume;
-        totalAllocated += allocation.allocated_volume;
-        totalLoss += loss;
-        addLog(`${allocation.partner} - Loss: ${loss.toFixed(2)} bbl`);
+        addLog(`${allocation.partner} - Loss: ${allocation.volume_loss.toFixed(2)} bbl`);
       });
       addLog(`Total Allocated: ${totalAllocated.toFixed(2)} bbl`);
       addLog(`Total Loss: ${totalLoss.toFixed(2)} bbl`);
@@ -265,7 +288,7 @@ const AllocationTestPage: React.FC = () => {
       addLog("VALIDATION CHECKS:", 'section');
       const balanceCheck = Math.abs((totalGrossInput - totalAllocated - totalLoss)) < 1;
       const terminalMatch = Math.abs(totalAllocated - testTerminal.final_volume_bbl) < 1;
-      const allEfficienciesValid = result.allocation_results.every(allocation => 
+      const allEfficienciesValid = result.allocation_results.every(allocation =>
         (allocation.allocated_volume / allocation.input_volume) <= 1.001
       );
 
