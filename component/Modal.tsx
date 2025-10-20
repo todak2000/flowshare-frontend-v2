@@ -1,6 +1,7 @@
-import { useEffect, useRef } from 'react';
+import { useEffect } from 'react';
 import { X } from 'lucide-react';
 import { COLORS } from "./Home";
+import { useFocusTrap } from '../hook/useFocusTrap';
 
 interface ModalProps {
   isOpen: boolean;
@@ -19,14 +20,11 @@ export const Modal: React.FC<ModalProps> = ({
   size = "md",
   showCloseButton = true,
 }) => {
-  const modalRef = useRef<HTMLDivElement>(null);
-  const closeButtonRef = useRef<HTMLButtonElement>(null);
+  // Use focus trap hook for accessibility
+  const containerRef = useFocusTrap(isOpen);
 
   useEffect(() => {
     if (isOpen) {
-      // Focus trap - focus the close button when modal opens
-      closeButtonRef.current?.focus();
-
       // Prevent body scroll
       document.body.style.overflow = 'hidden';
     } else {
@@ -76,7 +74,7 @@ export const Modal: React.FC<ModalProps> = ({
 
         {/* Modal panel */}
         <div
-          ref={modalRef}
+          ref={containerRef}
           className={`inline-block align-bottom ${COLORS.background.card} backdrop-blur-xl rounded-2xl text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle ${sizeClasses[size]} sm:w-full ${COLORS.border.light} border`}
         >
           <div className="px-6 pt-6 pb-4">
@@ -89,7 +87,6 @@ export const Modal: React.FC<ModalProps> = ({
               </h3>
               {showCloseButton && (
                 <button
-                  ref={closeButtonRef}
                   onClick={onClose}
                   className={`${COLORS.text.muted} hover:${COLORS.text.primary} transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 rounded`}
                   aria-label="Close modal"

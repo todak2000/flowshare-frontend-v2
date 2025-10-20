@@ -536,6 +536,9 @@ const NavigationHeader: React.FC = () => {
 
   return (
     <nav
+      id="navigation"
+      role="navigation"
+      aria-label="Main navigation"
       className={`fixed top-0 left-0 right-0 z-30 ${COLORS.background.card} backdrop-blur-xl ${COLORS.border.light} border-b`}
     >
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
