@@ -356,7 +356,7 @@ export const ReportModal: React.FC<ReportModalProps> = ({
       </head>
       <body>
         <div class="header">
-          <div class="logo"><img src="https://firebasestorage.googleapis.com/v0/b/back-allocation.firebasestorage.app/o/logo.webp?alt=media&token=a14f4e59-df8d-41bd-ae0c-3a1224c86033" style="width: 100px; margin-left:-10px" alt="FlowShare"/> </div>
+          <div class="logo"><img src="${process.env.NEXT_PUBLIC_LOGO_URL || 'https://via.placeholder.com/100x100?text=FlowShare'}" style="width: 100px; margin-left:-10px" alt="FlowShare"/> </div>
           <div class="period">Reconciliation Report</div>
           <div class="date">${periodRange}</div>
         </div>
