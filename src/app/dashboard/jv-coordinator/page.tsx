@@ -61,7 +61,6 @@ interface TerminalFormData {
   year: number;
 }
 
-
 // Reusable Components
 interface SummaryCardProps {
   title: string;
@@ -331,7 +330,6 @@ const JVCoordinatorDashboard: React.FC = () => {
     year: currentDate.getFullYear(),
   });
 
-
   useEffect(() => {
     if (!userLoading && !auth) {
       router.push("/onboarding/login");
@@ -368,7 +366,10 @@ const JVCoordinatorDashboard: React.FC = () => {
     setLoading(true);
     try {
       // Convert month/year to last day of month at 23:59:59
-      const timestamp = getLastDayOfMonth(terminalFormData.month, terminalFormData.year);
+      const timestamp = getLastDayOfMonth(
+        terminalFormData.month,
+        terminalFormData.year
+      );
 
       const submissionData: CreateTerminalReceiptData = {
         initial_volume_bbl: parseFloat(terminalFormData.initial_volume_bbl),
@@ -558,7 +559,7 @@ const JVCoordinatorDashboard: React.FC = () => {
                 <td
                   className={`px-6 py-4 whitespace-nowrap text-sm ${COLORS.text.primary}`}
                 >
-                  {((1 - run.shrinkage_factor) * 100).toFixed(2)}%
+                  {run.shrinkage_factor.toFixed(2)}%
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm">
                   <span
@@ -648,10 +649,13 @@ const JVCoordinatorDashboard: React.FC = () => {
               <Info className="w-4 h-4 text-blue-400 mt-0.5 flex-shrink-0" />
               <p className="text-xs text-blue-200">
                 Terminal receipt will be recorded for the last day of{" "}
-                {new Date(terminalFormData.year, terminalFormData.month).toLocaleDateString(
-                  "en-US",
-                  { month: "long", year: "numeric" }
-                )}{" "}
+                {new Date(
+                  terminalFormData.year,
+                  terminalFormData.month
+                ).toLocaleDateString("en-US", {
+                  month: "long",
+                  year: "numeric",
+                })}{" "}
                 at 11:59 PM
               </p>
             </div>
