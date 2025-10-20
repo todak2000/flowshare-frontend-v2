@@ -634,9 +634,9 @@ const ProductionDashboard: React.FC = () => {
     }
   }, [userData]);
 
-  const calculations = useProductionCalculations(
-    userData?.role === "jv_coordinator" ? allProductionData : filteredData
-  );
+  // Always use allProductionData for calculations (totals, charts, stats)
+  // filteredData is ONLY for table display (paginated)
+  const calculations = useProductionCalculations(allProductionData);
 
   const loadAllProductionData = async () => {
     try {
@@ -702,14 +702,15 @@ const ProductionDashboard: React.FC = () => {
         "next"
       );
 
-      // Extract just the target page data
+      // Extract just the target page data for display
       const startIndex = skipCount;
       const endIndex = startIndex + 31;
       const targetPageData = allDataResult.data.slice(startIndex, endIndex);
 
-      setAllProductionData(targetPageData);
+      // Don't overwrite allProductionData - keep it for calculations
+      // setAllProductionData(targetPageData); // REMOVED - this was causing the bug
       setTotal(allDataResult.total);
-      setFilteredData(targetPageData);
+      setFilteredData(targetPageData); // Only use filteredData for table display
       setCurrentPageIndex(targetPageIndex);
 
       // Update navigation states
