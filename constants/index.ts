@@ -13,4 +13,3 @@ export const permissionsList: Record<string, Permission> = {
   canExport: "export_reports",
   canViewAllocation: "view_allocation_results",
 };
-

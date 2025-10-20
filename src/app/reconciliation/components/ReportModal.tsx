@@ -1,11 +1,5 @@
 "use client";
-import {
-  Download,
-  Calendar,
-  BarChart3,
-  Users,
-  X,
-} from "lucide-react";
+import { Download, Calendar, BarChart3, Users, X } from "lucide-react";
 import { COLORS } from "../../../../component/Home";
 import { ReconciliationReport } from "../../../../types";
 import { Timestamp } from "firebase/firestore";
@@ -16,12 +10,12 @@ import { formatFirebaseTimestampRange } from "../../../../utils/timestampToPerio
  * Removes markdown code block markers (```html ... ```)
  */
 const cleanAIContent = (html: string): string => {
-  if (!html) return '';
+  if (!html) return "";
 
   // Remove markdown code blocks: ```html ... ``` or ``` ... ```
   return html
-    .replace(/```(?:html|xml|css|javascript|js)?\s*\n?/g, '')
-    .replace(/```\s*$/g, '')
+    .replace(/```(?:html|xml|css|javascript|js)?\s*\n?/g, "")
+    .replace(/```\s*$/g, "")
     .trim();
 };
 
@@ -50,7 +44,12 @@ const Modal: React.FC<ModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto" role="dialog" aria-modal="true" aria-labelledby="report-modal-title">
+    <div
+      className="fixed inset-0 z-50 overflow-y-auto"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="report-modal-title"
+    >
       <div className="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:block sm:p-0">
         {/* Background overlay */}
         <div
@@ -65,7 +64,10 @@ const Modal: React.FC<ModalProps> = ({
         >
           <div className="px-6 pt-6 pb-4">
             <div className="flex items-center justify-between mb-4">
-              <h3 id="report-modal-title" className={`text-lg font-semibold ${COLORS.text.primary}`}>
+              <h3
+                id="report-modal-title"
+                className={`text-lg font-semibold ${COLORS.text.primary}`}
+              >
                 {title}
               </h3>
               <button
@@ -96,15 +98,18 @@ export const ReportModal: React.FC<ReportModalProps> = ({
   report,
 }) => {
   // Export report as CSV
+  // Replace the exportReportCSV function with this fixed version:
+
   const exportReportCSV = (report: ReconciliationReport): void => {
     const csv = report.allocations.map((allocation) => ({
       Partner: allocation.partner,
       "Period Start": new Date(
-        allocation.start_date as Date
+        (allocation.start_date as Timestamp).toDate()
       ).toLocaleDateString(),
-      "Period End": new Date(allocation.end_date as Date).toLocaleDateString(),
+      "Period End": new Date(
+        (allocation.end_date as Timestamp).toDate()
+      ).toLocaleDateString(),
       "Input Volume (BBL)": allocation.input_volume,
-      "Net Volume (BBL)": allocation.net_volume,
       "Allocated Volume (BBL)": allocation.allocated_volume,
       "Volume Loss (BBL)": allocation.volume_loss || 0,
       "Share (%)": allocation.percentage,
@@ -114,28 +119,56 @@ export const ReportModal: React.FC<ReportModalProps> = ({
       ).toFixed(2),
     }));
 
+    // Calculate totals
+    const totals: Record<string, string | number> = {
+      Partner: "TOTAL",
+      "Period Start": "",
+      "Period End": "",
+      "Input Volume (BBL)": csv
+        .reduce(
+          (sum, row) => sum + parseFloat(String(row["Input Volume (BBL)"])),
+          0
+        )
+        .toFixed(2),
+      "Allocated Volume (BBL)": csv
+        .reduce(
+          (sum, row) => sum + parseFloat(String(row["Allocated Volume (BBL)"])),
+          0
+        )
+        .toFixed(2),
+      "Volume Loss (BBL)": csv
+        .reduce(
+          (sum, row) => sum + parseFloat(String(row["Volume Loss (BBL)"])),
+          0
+        )
+        .toFixed(2),
+      "Share (%)": csv
+        .reduce((sum, row) => sum + parseFloat(String(row["Share (%)"])), 0)
+        .toFixed(2),
+      "Efficiency (%)": "",
+    };
+
     const csvContent = [
       Object.keys(csv[0] || {}).join(","),
       ...csv.map((row) => Object.values(row).join(",")),
+      Object.values(totals).join(","), // Add totals row
     ].join("\n");
 
     const blob = new Blob([csvContent], { type: "text/csv" });
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
+
+    // Fixed: Convert Firebase Timestamps to Date properly
+    const startDate = (report.reconciliation.start_date as Timestamp).toDate();
+    const endDate = (report.reconciliation.end_date as Timestamp).toDate();
+
     a.download = `reconciliation_report_${
-      new Date(report.reconciliation.start_date as Date)
-        .toISOString()
-        .split("T")[0]
-    }_to_${
-      new Date(report.reconciliation.end_date as Date)
-        .toISOString()
-        .split("T")[0]
-    }.csv`;
+      startDate.toISOString().split("T")[0]
+    }_to_${endDate.toISOString().split("T")[0]}.csv`;
     a.click();
     window.URL.revokeObjectURL(url);
   };
-
   // Export report as PDF using browser print
   const exportReportPDF = (report: ReconciliationReport): void => {
     const periodRange = formatFirebaseTimestampRange(
@@ -158,30 +191,82 @@ export const ReportModal: React.FC<ReportModalProps> = ({
             font-family: system-ui, -apple-system, sans-serif;
             line-height: 1.5;
             color: #1f2937;
+            margin: 0;
+            padding: 0;
+          }
+          .page-content {
+            padding: 20px;
           }
           .header {
-            text-align: center;
-            margin-bottom: 30px;
-            border-bottom: 3px solid #3b82f6;
-            padding-bottom: 15px;
+            background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%);
+            padding: 40px 30px;
+            margin: 0;
+            margin-bottom:20px;
+            color: white;
+            position: relative;
+            overflow: hidden;
+            width: 100%;
+            box-sizing: border-box;
           }
-          .logo {
-            font-size: 24px;
-            font-weight: bold;
-            background: linear-gradient(135deg, #3b82f6 0%, #9333ea 50%, #06b6d4 100%);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
+          .header::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            right: -10%;
+            width: 300px;
+            height: 300px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 50%;
+          }
+          .header-content {
+            position: relative;
+            z-index: 1;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            max-width: 100%;
+          }
+          .header-left {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+          }
+          .logo-img {
+            width: 80px;
+            height: 80px;
+            background: white;
+            border-radius: 12px;
+            padding: 10px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+          }
+          .header-text {
+            text-align: left;
+          }
+          .company-name {
+            font-size: 28px;
+            font-weight: 700;
             margin-bottom: 5px;
+            letter-spacing: -0.5px;
           }
           .period {
-            font-size: 18px;
-            color: #64748b;
+            font-size: 16px;
+            opacity: 0.9;
+            font-weight: 500;
+          }
+          .header-right {
+            text-align: right;
+          }
+          .report-type {
+            font-size: 14px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            opacity: 0.8;
             margin-bottom: 5px;
+            font-weight: 600;
           }
           .date {
-            font-size: 12px;
-            color: #94a3b8;
+            font-size: 13px;
+            opacity: 0.9;
           }
           .summary {
             display: grid;
@@ -271,7 +356,7 @@ export const ReportModal: React.FC<ReportModalProps> = ({
       </head>
       <body>
         <div class="header">
-          <div class="logo">⚡ FlowShare</div>
+          <div class="logo"><img src="https://firebasestorage.googleapis.com/v0/b/back-allocation.firebasestorage.app/o/logo.webp?alt=media&token=a14f4e59-df8d-41bd-ae0c-3a1224c86033" style="width: 100px; margin-left:-10px" alt="FlowShare"/> </div>
           <div class="period">Reconciliation Report</div>
           <div class="date">${periodRange}</div>
         </div>
@@ -295,7 +380,9 @@ export const ReportModal: React.FC<ReportModalProps> = ({
           </div>
           <div class="summary-card">
             <div class="summary-label">Shrinkage</div>
-            <div class="summary-value">${Math.abs(report.summary.shrinkagePercentage).toFixed(2)}%</div>
+            <div class="summary-value">${Math.abs(
+              report.summary.shrinkagePercentage
+            ).toFixed(2)}%</div>
           </div>
           <div class="summary-card">
             <div class="summary-label">Allocated Volume</div>
@@ -303,11 +390,15 @@ export const ReportModal: React.FC<ReportModalProps> = ({
           </div>
         </div>
 
-        ${report.reconciliation.ai_summary ? `
+        ${
+          report.reconciliation.ai_summary
+            ? `
           <div class="ai-summary">
             <div>${cleanAIContent(report.reconciliation.ai_summary)}</div>
           </div>
-        ` : ''}
+        `
+            : ""
+        }
 
         <table>
           <thead>
@@ -321,25 +412,53 @@ export const ReportModal: React.FC<ReportModalProps> = ({
             </tr>
           </thead>
           <tbody>
-            ${report.allocations.map(allocation => {
-              const efficiency = (allocation.allocated_volume / Math.max(allocation.input_volume, 1)) * 100;
-              return `
+            ${report.allocations
+              .map((allocation) => {
+                const efficiency =
+                  (allocation.allocated_volume /
+                    Math.max(allocation.input_volume, 1)) *
+                  100;
+                return `
                 <tr>
                   <td>${allocation.partner}</td>
                   <td>${allocation.input_volume.toLocaleString()} bbl</td>
                   <td>${allocation.allocated_volume.toLocaleString()} bbl</td>
-                  <td>${Math.abs(allocation.volume_loss || 0).toLocaleString()} bbl</td>
+                  <td>${Math.abs(
+                    allocation.volume_loss || 0
+                  ).toLocaleString()} bbl</td>
                   <td>${allocation.percentage.toFixed(2)}%</td>
                   <td>${efficiency.toFixed(1)}%</td>
                 </tr>
               `;
-            }).join('')}
+              })
+              .join("")}
+              <tr style="background: #f1f5f9; border-top: 2px solid #cbd5e1; font-weight: 600;">
+                <td>TOTAL</td>
+                <td>${report.allocations
+                  .reduce((sum, a) => sum + a.input_volume, 0)
+                  .toLocaleString()} bbl</td>
+                <td>${report.allocations
+                  .reduce((sum, a) => sum + a.allocated_volume, 0)
+                  .toLocaleString()} bbl</td>
+                <td>${Math.abs(
+                  report.allocations.reduce(
+                    (sum, a) => sum + (a.volume_loss || 0),
+                    0
+                  )
+                ).toLocaleString()} bbl</td>
+                <td>${report.allocations
+                  .reduce((sum, a) => sum + a.percentage, 0)
+                  .toFixed(2)}%</td>
+                <td>—</td>
+              </tr>
           </tbody>
         </table>
 
         <div class="footer">
           Generated on ${new Date().toLocaleString()} • FlowShare Reconciliation System<br>
-          Run Date: ${new Date(report.reconciliation.timestamp).toLocaleDateString()}
+          Run Date: ${new Date(
+            report.reconciliation.timestamp
+          ).toLocaleDateString()}
         </div>
       </body>
       </html>
@@ -467,7 +586,10 @@ export const ReportModal: React.FC<ReportModalProps> = ({
             <span>Partner Allocations</span>
           </h4>
           <div className="overflow-x-auto">
-            <table className="w-full text-sm" aria-label="Partner allocations table">
+            <table
+              className="w-full text-sm"
+              aria-label="Partner allocations table"
+            >
               <thead className={`${COLORS.background.overlay}`}>
                 <tr>
                   <th
@@ -519,9 +641,14 @@ export const ReportModal: React.FC<ReportModalProps> = ({
                       key={allocation.id}
                       className="hover:bg-white/5 transition-colors"
                     >
-                      <td className={`px-3 py-3 font-medium ${COLORS.text.primary}`}>
+                      <td
+                        className={`px-3 py-3 font-medium ${COLORS.text.primary}`}
+                      >
                         <div className="flex items-center space-x-2">
-                          <div className="w-2 h-2 bg-blue-400 rounded-full" aria-hidden="true"></div>
+                          <div
+                            className="w-2 h-2 bg-blue-400 rounded-full"
+                            aria-hidden="true"
+                          ></div>
                           <span>{allocation.partner}</span>
                         </div>
                       </td>
@@ -563,6 +690,38 @@ export const ReportModal: React.FC<ReportModalProps> = ({
                     </tr>
                   );
                 })}
+                {/* Totals Row */}
+                <tr className="bg-blue-500/10 border-t-2 border-blue-500/30 font-bold">
+                  <td className={`px-3 py-3 ${COLORS.text.primary}`}>TOTAL</td>
+                  <td className={`px-3 py-3 ${COLORS.text.primary}`}>
+                    {report.allocations
+                      .reduce((sum, a) => sum + a.input_volume, 0)
+                      .toLocaleString()}{" "}
+                    bbl
+                  </td>
+                  <td className="px-3 py-3 text-green-400 font-medium">
+                    {report.allocations
+                      .reduce((sum, a) => sum + a.allocated_volume, 0)
+                      .toLocaleString()}{" "}
+                    bbl
+                  </td>
+                  <td className={`px-3 py-3 ${COLORS.text.primary}`}>
+                    {Math.abs(
+                      report.allocations.reduce(
+                        (sum, a) => sum + (a.volume_loss || 0),
+                        0
+                      )
+                    ).toLocaleString()}{" "}
+                    bbl
+                  </td>
+                  <td className={`px-3 py-3 ${COLORS.text.primary}`}>
+                    {report.allocations
+                      .reduce((sum, a) => sum + a.percentage, 0)
+                      .toFixed(2)}
+                    %
+                  </td>
+                  <td className={`px-3 py-3 ${COLORS.text.primary}`}>—</td>
+                </tr>
               </tbody>
             </table>
           </div>
@@ -573,7 +732,6 @@ export const ReportModal: React.FC<ReportModalProps> = ({
           <div
             className={`${COLORS.background.glass} rounded-xl p-4 ${COLORS.border.light} border`}
           >
-            
             <div
               className={`${COLORS.text.primary} text-sm leading-relaxed ai-summary-content`}
               style={{ fontFamily: "system-ui, -apple-system, sans-serif" }}
@@ -583,8 +741,7 @@ export const ReportModal: React.FC<ReportModalProps> = ({
             />
             <div className="mt-3 pt-3 border-t border-white/10">
               <p className={`text-xs ${COLORS.text.muted} italic`}>
-                • Insights based on reconciliation data
-                and historical patterns
+                • Insights based on reconciliation data and historical patterns
               </p>
             </div>
           </div>
