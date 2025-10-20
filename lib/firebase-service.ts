@@ -646,6 +646,7 @@ export class FirebaseService {
       });
 
       // Automatically trigger reconciliation for this month
+      let reconciliationWarning = '';
       try {
         console.log(`🚀 Auto-triggering reconciliation for ${inputDate.toLocaleDateString('en-US', { year: 'numeric', month: 'long' })}...`);
 
@@ -658,9 +659,43 @@ export class FirebaseService {
         console.log(`✅ Automatic reconciliation completed! ID: ${reconciliationId}`);
       } catch (reconciliationError: any) {
         console.error(`⚠️ Automatic reconciliation failed: ${reconciliationError.message}`);
-        // Don't fail the terminal receipt creation if reconciliation fails
-        // Log it but continue
+
+        // Terminal receipt is already created - store warning to show user
+        reconciliationWarning = reconciliationError.message;
         console.log('Terminal receipt created successfully, but reconciliation needs to be run manually');
+      }
+
+      // If reconciliation failed, throw informative error
+      // Terminal receipt is already saved, this just notifies the user
+      if (reconciliationWarning) {
+        const monthName = inputDate.toLocaleDateString('en-US', { year: 'numeric', month: 'long' });
+
+        // Customize error message based on the failure reason
+        if (reconciliationWarning.includes('already done for the period')) {
+          throw new Error(
+            `✅ Terminal receipt created successfully!\n\n` +
+            `⚠️ However, automatic reconciliation was skipped because a reconciliation already exists for ${monthName}.\n\n` +
+            `If you need to update the reconciliation with this new terminal receipt data:\n` +
+            `1. Go to the Reconciliation page\n` +
+            `2. Delete the existing reconciliation for ${monthName}\n` +
+            `3. Run reconciliation again manually`
+          );
+        } else if (reconciliationWarning.includes('No production entries found')) {
+          throw new Error(
+            `✅ Terminal receipt created successfully!\n\n` +
+            `⚠️ However, automatic reconciliation was skipped because no production entries were found for ${monthName}.\n\n` +
+            `Next steps:\n` +
+            `1. Go to the Production page\n` +
+            `2. Add production entries for ${monthName}\n` +
+            `3. Then go to Reconciliation page and run reconciliation manually`
+          );
+        } else {
+          throw new Error(
+            `✅ Terminal receipt created successfully!\n\n` +
+            `⚠️ However, automatic reconciliation failed: ${reconciliationWarning}\n\n` +
+            `Please run reconciliation manually from the Reconciliation page.`
+          );
+        }
       }
 
       return docRef.id;
