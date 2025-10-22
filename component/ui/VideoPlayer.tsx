@@ -1,5 +1,5 @@
 "use client";
-import React, { useState } from "react";
+import React from "react";
 import { Play } from "lucide-react";
 
 interface VideoPlayerProps {
@@ -14,11 +14,30 @@ interface VideoPlayerProps {
 }
 
 /**
+ * Extract YouTube video ID from various YouTube URL formats
+ */
+const getYouTubeVideoId = (url: string): string | null => {
+  const patterns = [
+    /(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([^&\n?#]+)/,
+    /^([a-zA-Z0-9_-]{11})$/, // Direct video ID
+  ];
+
+  for (const pattern of patterns) {
+    const match = url.match(pattern);
+    if (match && match[1]) {
+      return match[1];
+    }
+  }
+  return null;
+};
+
+/**
  * Reusable video player component with fallback placeholder
  * Shows placeholder with call-to-action when video source is not provided
- */
+ * Supports both YouTube URLs and direct video files
+ */git rm --cached
 export const VideoPlayer: React.FC<VideoPlayerProps> = ({
-  videoSrc = "/Flowshare_Demo_2.mov",
+  videoSrc = "https://www.youtube.com/watch?v=b0BSD6JAadU",
   posterSrc,
   autoPlay = false,
   loop = true,
@@ -27,7 +46,6 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
   className = "",
   placeholderText = "Product demo video coming soon",
 }) => {
-  const [isPlaying, setIsPlaying] = useState(autoPlay);
 
   // Show placeholder if no video source provided
   if (!videoSrc) {
@@ -55,6 +73,34 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
     );
   }
 
+  // Check if this is a YouTube URL
+  const youtubeVideoId = getYouTubeVideoId(videoSrc);
+
+  // Render YouTube iframe if it's a YouTube URL
+  if (youtubeVideoId) {
+    const embedUrl = `https://www.youtube.com/embed/${youtubeVideoId}?${autoPlay ? 'autoplay=1&' : ''}${muted ? 'mute=1&' : ''}${loop ? 'loop=1&playlist=' + youtubeVideoId + '&' : ''}rel=0`;
+
+    return (
+      <div
+        className={`relative rounded-2xl overflow-hidden shadow-2xl ${className}`}
+      >
+        <iframe
+          src={embedUrl}
+          className="w-full aspect-video"
+          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+          allowFullScreen
+          title="YouTube video player"
+        />
+        {badge && (
+          <div className="absolute bottom-4 left-4 bg-black/70 px-4 py-2 rounded-full">
+            <span className="text-white text-sm">{badge}</span>
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // Render standard HTML5 video player for direct video files
   return (
     <div
       className={`relative rounded-2xl overflow-hidden shadow-2xl ${className}`}
@@ -66,8 +112,6 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
         playsInline
         poster={posterSrc}
         className="w-full"
-        onPlay={() => setIsPlaying(true)}
-        onPause={() => setIsPlaying(false)}
         controls
       >
         <source src={videoSrc} type="video/mp4" />
