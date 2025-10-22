@@ -1,4 +1,4 @@
-# FlowShare: AI-Powered Autonomous Hydrocarbon Allocation
+# FlowShare: Revolutionizing hydrocarbon allocation through innovation
 
 [![Cloud Run](https://img.shields.io/badge/Google%20Cloud-Run-4285F4?logo=googlecloud&logoColor=white)](https://cloud.google.com/run)
 [![Gemini](https://img.shields.io/badge/Google-Gemini%20Pro-8E75B2?logo=google&logoColor=white)](https://ai.google.dev/)
@@ -9,8 +9,10 @@
 
 > **Three AI agents on Google Cloud Run automate weeks of oil & gas reconciliation into minutes**
 
-**Live Demo:** [https://flowshare-197665497260.europe-west1.run.app/](https://flowshare-197665497260.europe-west1.run.app/)
-**Demo Video:** [Watch on YouTube](#)
+**Live Link:** [https://flowshare-197665497260.europe-west1.run.app/](https://flowshare-197665497260.europe-west1.run.app/)
+
+**Demo Video:** [Watch on Youtube](https://youtu.be/b0BSD6JAadU)
+
 **Blog Post:** [Read on Medium](https://medium.com/@todak2000/building-flowshare-how-i-built-a-multi-agent-system-on-google-cloud-run-a6dd577989e2)
 
 Built for the **Google Cloud Run Hackathon 2025** - AI Agents Category
@@ -44,7 +46,7 @@ FlowShare is a production-grade multi-agent system that revolutionizes hydrocarb
 - ⏱️ **95% time reduction** (weeks → minutes)
 - 💰 **$200K+ annual savings** per joint venture
 - 🛡️ **95% fraud prevention** rate
-- ✅ **100% calculation accuracy**
+- ✅ **99.99% calculation accuracy**
 - 🔒 **Cryptographic audit trails** for compliance
 
 ---
@@ -275,7 +277,10 @@ Ensure the backend services are running and accessible. See the backend  [README
 
 ### Live Demo
 
-**URL:** [https://flowshare-app.run.app](https://flowshare-app.run.app)
+
+**URL:** [Website](https://flowshare-197665497260.europe-west1.run.app/)
+**Video Demo:** [Demo Presentation](https://youtu.be/b0BSD6JAadU)
+**Agent Command Center:** [Agent Center](https://flowshare-197665497260.europe-west1.run.app/agents) - Access it with `agent123`
 
 ### Demo Accounts
 
@@ -465,11 +470,9 @@ Send notifications for reconciliation
 
 ## 📖 Documentation
 
-- [Architecture Diagram](public/agent.jpg) - Detailed system architecture
-- [Demo Guide](./DEMO_GUIDE.md) - Comprehensive demo walkthrough
+
 - [Backend README](https://github.com/todak2000/flowshare-agents-backend/blob/main/README.md) - Agent implementation details
 - [Blog Post](https://medium.com/@todak2000/building-flowshare-how-i-built-a-multi-agent-system-on-google-cloud-run-a6dd577989e2) - How I built FlowShare
-- [Demo Video Script](./DEMO_VIDEO_SCRIPT.md) - Video recording guide
 
 ---
 
@@ -504,9 +507,11 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 - **Category:** AI Agents
 - **Submission Date:** November 2025
-- **Demo Video:** [YouTube Link](#)
+- **Demo Video:** [Link](https://youtu.be/b0BSD6JAadU)
 - **Blog Post:** [Medium Link](https://medium.com/@todak2000/building-flowshare-how-i-built-a-multi-agent-system-on-google-cloud-run-a6dd577989e2)
-- **Social Media:** [LinkedIn/Twitter Link](#) (#CloudRunHackathon)
+- **Social Media:** [LinkedIn](https://www.linkedin.com/posts/dolagunju_cloudrunhackathon-googlecloud-aiagents-activity-7386871460671148032-Y37w)  | [Twitter](https://x.com/todak/status/1981103226096382008)
+
+(#CloudRunHackathon)
 
 ### Why FlowShare Will Win
 
@@ -533,7 +538,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## 📞 Contact
 
-- **Live Demo:** [https://flowshare-197665497260.europe-west1.run.app/](https://flowshare-197665497260.europe-west1.run.app/)
+- **Live Demo:** [FlowShare Hackathon Demo](https://youtu.be/b0BSD6JAadU)
 - **Email:** [todak2000@gmail.com]
 - **LinkedIn:** [LinkedIn Profile](https://www.linkedin.com/in/dolagunju/)
 - **Twitter/X:** [@todak](https://x.com/todak)

@@ -18,7 +18,7 @@ interface VideoPlayerProps {
  * Shows placeholder with call-to-action when video source is not provided
  */
 export const VideoPlayer: React.FC<VideoPlayerProps> = ({
-  videoSrc,
+  videoSrc = "/Flowshare_Demo_2.mov",
   posterSrc,
   autoPlay = false,
   loop = true,
