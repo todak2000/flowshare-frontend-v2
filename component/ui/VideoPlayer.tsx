@@ -35,7 +35,7 @@ const getYouTubeVideoId = (url: string): string | null => {
  * Reusable video player component with fallback placeholder
  * Shows placeholder with call-to-action when video source is not provided
  * Supports both YouTube URLs and direct video files
- */git rm --cached
+ */
 export const VideoPlayer: React.FC<VideoPlayerProps> = ({
   videoSrc = "https://www.youtube.com/watch?v=b0BSD6JAadU",
   posterSrc,
