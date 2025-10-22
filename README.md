@@ -1,4 +1,8 @@
+<<<<<<< HEAD
 # FlowShare: Revolutionizing hydrocarbon allocation through innovation
+=======
+# FlowShare: AI-Powered Autonomous Hydrocarbon Allocation
+>>>>>>> 07c02895ed488ddbfe573a38ec27e8c5edb67339
 
 [![Cloud Run](https://img.shields.io/badge/Google%20Cloud-Run-4285F4?logo=googlecloud&logoColor=white)](https://cloud.google.com/run)
 [![Gemini](https://img.shields.io/badge/Google-Gemini%20Pro-8E75B2?logo=google&logoColor=white)](https://ai.google.dev/)
@@ -9,6 +13,7 @@
 
 > **Three AI agents on Google Cloud Run automate weeks of oil & gas reconciliation into minutes**
 
+<<<<<<< HEAD
 **Live Link:** [https://flowshare-197665497260.europe-west1.run.app/](https://flowshare-197665497260.europe-west1.run.app/)
 
 **Demo Video:** [Watch on Youtube](https://youtu.be/b0BSD6JAadU)
@@ -35,6 +40,32 @@ Built for the **Google Cloud Run Hackathon 2025** - AI Agents Category
 - [Contributing](#contributing)
 - [License](#license)
 
+=======
+**Live Demo:** [https://flowshare-197665497260.europe-west1.run.app/](https://flowshare-197665497260.europe-west1.run.app/)
+**Demo Video:** [Watch on YouTube](#)
+**Blog Post:** [Read on Medium](https://medium.com/@todak2000/building-flowshare-how-i-built-a-multi-agent-system-on-google-cloud-run-a6dd577989e2)
+
+Built for the **Google Cloud Run Hackathon 2025** - AI Agents Category
+
+---
+
+## 📋 Table of Contents
+
+- [Overview](#overview)
+- [The Problem](#the-problem)
+- [The Solution](#the-solution)
+- [Architecture](#architecture)
+- [Technology Stack](#technology-stack)
+- [Key Features](#key-features)
+- [Multi-Agent System](#multi-agent-system)
+- [Quick Start](#quick-start)
+- [Demo](#demo)
+- [Deployment](#deployment)
+- [API Documentation](#api-documentation)
+- [Contributing](#contributing)
+- [License](#license)
+
+>>>>>>> 07c02895ed488ddbfe573a38ec27e8c5edb67339
 ---
 
 ## 🎯 Overview
@@ -46,7 +77,11 @@ FlowShare is a production-grade multi-agent system that revolutionizes hydrocarb
 - ⏱️ **95% time reduction** (weeks → minutes)
 - 💰 **$200K+ annual savings** per joint venture
 - 🛡️ **95% fraud prevention** rate
+<<<<<<< HEAD
 - ✅ **99.99% calculation accuracy**
+=======
+- ✅ **100% calculation accuracy**
+>>>>>>> 07c02895ed488ddbfe573a38ec27e8c5edb67339
 - 🔒 **Cryptographic audit trails** for compliance
 
 ---
@@ -237,6 +272,7 @@ Agents communicate through:
 - Docker
 - Google Cloud account
 - Firebase project
+<<<<<<< HEAD
 
 ### Clone Repository
 
@@ -466,13 +502,249 @@ Send notifications for reconciliation
 }
 ```
 
+=======
+
+### Clone Repository
+
+```bash
+git clone --branch hackathon https://github.com/todak2000/hydrochain.git
+cd hydrochain
+```
+
+### Frontend Setup
+
+```bash
+
+# Install dependencies
+yarn install
+
+# Create environment file
+cp .env.sample .env.local
+
+# Add your Firebase config to .env.local
+# NEXT_PUBLIC_FIREBASE_API_KEY=...
+# NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=...
+# etc.
+
+# Run development server
+yarn dev
+
+# Visit http://localhost:3000
+```
+
+### Backend Setup (Agents)
+
+Ensure the backend services are running and accessible. See the backend  [README](https://github.com/todak2000/flowshare-agents-backend/blob/main/README.md) for setup instructions.
+
+
+---
+
+## 🎮 Demo
+
+### Live Demo
+
+**URL:** [https://flowshare-app.run.app](https://flowshare-app.run.app)
+
+### Demo Accounts
+
+| Role               | Email                | Password    |
+|--------------------|----------------------|-------------|
+| Field Operator     | fo@test.com         | Test@123    |
+| JV Coordinator     | Qwert@gmail.com     | Test@123    |
+| JV Partner         | jvp@test.com        | Test@123    |
+
+### Demo Walkthrough
+
+1. **Login as Field Operator** (`fo@test.com`)
+   - Navigate to Production page
+   - Submit a production entry
+   - Watch Auditor Agent validate in real-time
+   - Try submitting an anomaly (very high volume) to see AI fraud detection
+   NOTE: You might be unable to do this if that Day's Production Data has been already inputed, submitted.
+
+2. **Switch to JV Coordinator** (`Qwert@gmail.com`)
+   - Navigate to Reconciliation page
+   - Select period (e.g., October 2025)
+   - Click "Run Reconciliation"
+   - View Accountant Agent results (allocations, percentages, losses)
+
+3. **Check Agent Command Center**
+   - Navigate to Agents page
+   - See all three agents' health status
+   - View activity logs and execution times
+
+4. **View Analytics** (any role)
+   - Navigate to Insights page
+   - Explore production trends
+   - Analyze partner performance
+   - Review historical reconciliations
+
+### Generate Demo Data
+
+Visit the **Demo page** to generate realistic test data:
+- Choose period (Current Month, 3 Months, 6 Months, Custom)
+- Click "Generate Data"
+- Watch as 4 partners' production data is created
+- Data includes realistic variations and intentional anomalies
+
+---
+
+## 🚢 Deployment
+
+### Deploy to Google Cloud Run
+
+#### Prerequisites
+
+```bash
+# Install Google Cloud SDK
+curl https://sdk.cloud.google.com | bash
+exec -l $SHELL
+
+# Authenticate
+gcloud auth login
+gcloud config set project YOUR_PROJECT_ID
+```
+
+#### Configure Artifact Registry
+
+```bash
+gcloud artifacts repositories create flowshare-repo \
+  --repository-format=docker \
+  --location=europe-west1 \
+  --description="FlowShare Docker images"
+
+# Configure Docker
+gcloud auth configure-docker europe-west1-docker.pkg.dev
+```
+
+
+#### CI/CD with GitHub Actions
+
+FlowShare includes 4 GitHub Actions workflows:
+
+1. `deploy.yml` - Frontend deployment (on push to `hackathon` branch)
+2. `deploy-auditor.yml` - Auditor Agent (on push to `main` + changes in `auditor-agent/*`)
+3. `deploy-accountant.yml` - Accountant Agent
+4. `deploy-communicator.yml` - Communicator Agent
+
+**Setup:**
+1. Add `GCP_SA_KEY` secret to GitHub repository (service account JSON)
+2. Add other secrets (Firebase config, Gemini API key)
+3. Push to trigger deployment
+
+---
+
+## 📚 API Documentation
+
+### Auditor Agent API
+
+**Base URL:** `https://auditor-agent-g5zmzlktoa-ew.a.run.app`
+
+#### POST /validate
+Validate a production entry
+
+**Request:**
+```json
+{
+  "entry_id": "prod_123",
+  "partner": "Partner A",
+  "gross_volume_bbl": 32500,
+  "bsw_percent": 5.2,
+  "temperature_degF": 75,
+  "api_gravity": 35
+}
+```
+
+**Response:**
+```json
+{
+  "status": "valid",
+  "flagged": false,
+  "issues": [],
+  "ai_analysis": "Entry is within normal parameters for Partner A.",
+  "confidence_score": 0.92
+}
+```
+
+#### GET /health
+Health check endpoint
+
+#### GET /logs
+Recent activity logs (paginated)
+
+### Accountant Agent API
+
+**Base URL:** `https://accountant-agent-g5zmzlktoa-ew.a.run.app`
+
+#### POST /calculate
+Run allocation calculation
+
+**Request:**
+```json
+{
+  "period_start": "2025-10-01",
+  "period_end": "2025-10-31",
+  "terminal_receipt_id": "term_123"
+}
+```
+
+**Response:**
+```json
+{
+  "reconciliation_id": "recon_456",
+  "allocations": [
+    {
+      "partner": "Partner A",
+      "net_volume": 32100,
+      "allocated_volume": 12450,
+      "percentage": 38.2,
+      "volume_loss": 650
+    }
+  ],
+  "shrinkage_factor": 0.958,
+  "hash": "a1b2c3d4..."
+}
+```
+
+### Communicator Agent API
+
+**Base URL:** `https://communicator-agent-g5zmzlktoa-ew.a.run.app`
+
+#### POST /notify
+Send notifications for reconciliation
+
+**Request:**
+```json
+{
+  "reconciliation_id": "recon_456"
+}
+```
+
+**Response:**
+```json
+{
+  "notifications_sent": 12,
+  "summary": "October 2025 reconciliation completed...",
+  "status": "success"
+}
+```
+
+>>>>>>> 07c02895ed488ddbfe573a38ec27e8c5edb67339
 ---
 
 ## 📖 Documentation
 
+<<<<<<< HEAD
 
 - [Backend README](https://github.com/todak2000/flowshare-agents-backend/blob/main/README.md) - Agent implementation details
 - [Blog Post](https://medium.com/@todak2000/building-flowshare-how-i-built-a-multi-agent-system-on-google-cloud-run-a6dd577989e2) - How I built FlowShare
+=======
+- [Architecture Diagram](public/agent.jpg) - Detailed system architecture
+- [Demo Guide](./DEMO_GUIDE.md) - Comprehensive demo walkthrough
+- [Backend README](https://github.com/todak2000/flowshare-agents-backend/blob/main/README.md) - Agent implementation details
+- [Blog Post](https://medium.com/@todak2000/building-flowshare-how-i-built-a-multi-agent-system-on-google-cloud-run-a6dd577989e2) - How I built FlowShare
+- [Demo Video Script](./DEMO_VIDEO_SCRIPT.md) - Video recording guide
+>>>>>>> 07c02895ed488ddbfe573a38ec27e8c5edb67339
 
 ---
 
@@ -507,11 +779,17 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 - **Category:** AI Agents
 - **Submission Date:** November 2025
+<<<<<<< HEAD
 - **Demo Video:** [Link](https://youtu.be/b0BSD6JAadU)
 - **Blog Post:** [Medium Link](https://medium.com/@todak2000/building-flowshare-how-i-built-a-multi-agent-system-on-google-cloud-run-a6dd577989e2)
 - **Social Media:** [LinkedIn](https://www.linkedin.com/posts/dolagunju_cloudrunhackathon-googlecloud-aiagents-activity-7386871460671148032-Y37w)  | [Twitter](https://x.com/todak/status/1981103226096382008)
 
 (#CloudRunHackathon)
+=======
+- **Demo Video:** [YouTube Link](#)
+- **Blog Post:** [Medium Link](https://medium.com/@todak2000/building-flowshare-how-i-built-a-multi-agent-system-on-google-cloud-run-a6dd577989e2)
+- **Social Media:** [LinkedIn/Twitter Link](#) (#CloudRunHackathon)
+>>>>>>> 07c02895ed488ddbfe573a38ec27e8c5edb67339
 
 ### Why FlowShare Will Win
 
@@ -538,7 +816,11 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## 📞 Contact
 
+<<<<<<< HEAD
 - **Live Demo:** [FlowShare Hackathon Demo](https://youtu.be/b0BSD6JAadU)
+=======
+- **Live Demo:** [https://flowshare-197665497260.europe-west1.run.app/](https://flowshare-197665497260.europe-west1.run.app/)
+>>>>>>> 07c02895ed488ddbfe573a38ec27e8c5edb67339
 - **Email:** [todak2000@gmail.com]
 - **LinkedIn:** [LinkedIn Profile](https://www.linkedin.com/in/dolagunju/)
 - **Twitter/X:** [@todak](https://x.com/todak)
