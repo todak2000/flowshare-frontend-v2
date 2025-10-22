@@ -828,9 +828,8 @@ const ProductionDashboard: React.FC = () => {
               );
             } else {
               alert(
-                `⚠️ Entry updated but still flagged.\n\nAI Analysis: ${
-                  validationResult.ai_analysis || "Anomaly detected"
-                }\n\nConfidence Score: ${
+                `⚠️ Entry updated but still flagged.\n\nAnalysis: "Anomaly detected. See details in Production data page"
+                \n\nConfidence Score: ${
                   validationResult.confidence_score?.toFixed(2) || "N/A"
                 }`
               );
@@ -1315,7 +1314,7 @@ const ProductionDashboard: React.FC = () => {
 
               <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-xl p-4">
                 <h4 className="text-lg font-semibold text-yellow-400 mb-3 flex items-center gap-2">
-                  <span>🤖</span> AI Analysis
+                  <span>🤖</span> Analysis
                 </h4>
                 <div className="text-sm mb-3 max-h-96 overflow-y-auto">
                   {formatAiAnalysis(
